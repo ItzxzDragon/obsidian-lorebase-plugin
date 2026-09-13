@@ -24,14 +24,17 @@ export class LibrarySurfaceRenderer {
         const sorts = options.sorts ?? [];
         const group: GroupSpec = options.group ?? { mode: 'none', order: 'asc' };
         const fields = options.fields ?? definition.schema.fields;
+        const orientation = definition.orientation ?? 'vertical';
+        const cardSize = definition.cardSize ?? 'medium';
+        const columns = Math.max(1, definition.columns ?? 3);
         const groups = applyLibraryView(items, rules, sorts, group, fields);
 
         parent.empty();
         parent.addClass('lorebase-library-surface');
         parent.dataset.libraryId = definition.id;
         parent.dataset.libraryKind = definition.kind === 'custom' ? 'custom' : 'builtin';
-        parent.dataset.libraryOrientation = definition.orientation;
-        parent.dataset.libraryCardSize = definition.cardSize;
+        parent.dataset.libraryOrientation = orientation;
+        parent.dataset.libraryCardSize = cardSize;
 
         for (const result of groups) {
             const section = parent.createDiv({ cls: 'lorebase-library-surface-group' });
@@ -40,9 +43,9 @@ export class LibrarySurfaceRenderer {
             }
 
             const grid = section.createDiv({ cls: 'lorebase-library-surface-grid' });
-            grid.dataset.libraryOrientation = definition.orientation;
-            grid.dataset.libraryCardSize = definition.cardSize;
-            if (definition.orientation === 'horizontal') {
+            grid.dataset.libraryOrientation = orientation;
+            grid.dataset.libraryCardSize = cardSize;
+            if (orientation === 'horizontal') {
                 grid.addClass('is-horizontal');
                 if (definition.customHorizontalCardMinWidth) {
                     grid.style.setProperty('--lorebase-library-card-min-width', `${definition.customHorizontalCardMinWidth}px`);
@@ -52,7 +55,7 @@ export class LibrarySurfaceRenderer {
                 }
             } else {
                 grid.addClass('is-vertical');
-                grid.style.setProperty('--lorebase-library-columns', String(Math.max(1, definition.columns)));
+                grid.style.setProperty('--lorebase-library-columns', String(columns));
                 if (definition.customCardMinWidth) {
                     grid.style.setProperty('--lorebase-library-card-min-width', `${definition.customCardMinWidth}px`);
                 }

@@ -1,7 +1,7 @@
 {
-    "name": "lorebase",
-    "version": "3.0.1",
-    "description": "A media hub for games, anime, movies, series, books, and manga with rich cards, progress, ratings, and metadata.",
+    "name": "lorevault",
+    "version": "0.1.0",
+    "description": "A personal media library for Obsidian with customizable libraries, views, filters, sorting, grouping, and rich cards.",
     "main": "main.js",
     "scripts": {
         "dev": "node esbuild.config.mjs",
@@ -12,13 +12,13 @@
     "keywords": [
         "obsidian",
         "plugin",
-        "games",
-        "anime",
-        "movies",
-        "books",
-        "library"
+        "library",
+        "media",
+        "custom-library",
+        "views",
+        "filters"
     ],
-    "author": "Murch1k",
+    "author": "ItzxzDragon",
     "license": "MIT",
     "devDependencies": {
         "@types/node": "^20.10.0",

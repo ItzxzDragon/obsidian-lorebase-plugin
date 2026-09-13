@@ -12,6 +12,13 @@ import {
 } from './LibrarySelection';
 import type { LibraryItem } from './types';
 
+export interface LibrarySurfaceSnapshot {
+    selection: ActiveLibrary;
+    selectionId: string;
+    option: LibrarySelectionOption | null;
+    isCustom: boolean;
+}
+
 /** Coordinates selection and loading for the single Library surface. */
 export class LibrarySurfaceController {
     private active: ActiveLibrary;
@@ -40,6 +47,15 @@ export class LibrarySurfaceController {
         return resolveSelection(this.manager, this.active);
     }
 
+    getSnapshot(): LibrarySurfaceSnapshot {
+        return {
+            selection: this.active,
+            selectionId: this.getSelectionId(),
+            option: this.getCurrentOption(),
+            isCustom: this.isCustomSelected(),
+        };
+    }
+
     isCustomSelected(): boolean {
         return this.active.kind === 'custom';
     }
@@ -60,7 +76,13 @@ export class LibrarySurfaceController {
         this.active = customSelection(libraryId);
     }
 
-    async loadCustomItems(): Promise<LibraryItem[]> {
+    /** Load items for the current selection; built-ins remain owned by their media services. */
+    async loadItems(): Promise<LibraryItem[]> {
         return loadSelectionItems(this.manager, this.active);
+    }
+
+    /** @deprecated Use loadItems(). */
+    async loadCustomItems(): Promise<LibraryItem[]> {
+        return this.loadItems();
     }
 }

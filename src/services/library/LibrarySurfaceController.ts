@@ -1,4 +1,4 @@
-import type { FieldDefinition, MediaType } from '../../types';
+import type { FieldDefinition, MediaType, SortOrder, SortSpec } from '../../types';
 import type { LibraryManager } from './LibraryManager';
 import {
     buildLibrarySelectionOptions,
@@ -12,6 +12,12 @@ import {
 } from './LibrarySelection';
 import { LibrarySurfaceRenderer, type LibrarySurfaceRenderOptions } from './LibrarySurfaceRenderer';
 import type { LibraryDefinition, LibraryItem } from './types';
+import {
+    cloneUnifiedViewState,
+    createEmptyFilterGroup,
+    type FilterGroup,
+    type UnifiedLibraryViewState,
+} from './unifiedViewState';
 
 export interface LibrarySurfaceSnapshot {
     selection: ActiveLibrary;
@@ -28,6 +34,7 @@ export interface LibrarySurfaceControllerOptions {
 export class LibrarySurfaceController {
     private active: ActiveLibrary;
     private readonly renderer: LibrarySurfaceRenderer;
+    private viewState: UnifiedLibraryViewState;
 
     constructor(
         private readonly manager: LibraryManager,
@@ -36,6 +43,7 @@ export class LibrarySurfaceController {
     ) {
         this.active = builtinSelection(initialMediaType);
         this.renderer = options.renderer ?? new LibrarySurfaceRenderer();
+        this.viewState = createDefaultViewState();
     }
 
     /** All Built-in and Custom libraries available to the same selector. */
@@ -91,6 +99,7 @@ export class LibrarySurfaceController {
 
     selectBuiltin(mediaType: MediaType): void {
         this.active = builtinSelection(mediaType);
+        this.viewState = createDefaultViewState();
     }
 
     selectCustom(libraryId: string): void {
@@ -99,6 +108,45 @@ export class LibrarySurfaceController {
             throw new Error(`Custom library not found: ${libraryId}`);
         }
         this.active = customSelection(libraryId);
+        this.viewState = viewStateFromDefinition(option.definition);
+    }
+
+    /** The canonical View/Filter/Sort/Group state for the active Library. */
+    getViewState(): UnifiedLibraryViewState {
+        return cloneUnifiedViewState(this.viewState);
+    }
+
+    /** Replace the canonical View/Filter/Sort/Group state without sharing mutable references. */
+    setViewState(state: UnifiedLibraryViewState): void {
+        this.viewState = cloneUnifiedViewState(state);
+    }
+
+    /** Update only the multi-sort list. */
+    setSorts(sorts: SortSpec[]): void {
+        this.viewState = {
+            ...this.viewState,
+            sorts: sorts.map((sort) => ({ ...sort })),
+        };
+    }
+
+    /** Update the nested filter tree and keep the legacy flat rules synchronized. */
+    setFilterGroup(filterGroup: FilterGroup): void {
+        this.viewState = {
+            ...this.viewState,
+            filterGroup: {
+                ...filterGroup,
+                children: filterGroup.children.map((child) => ({ ...child })),
+            },
+        };
+    }
+
+    /** Update arbitrary property grouping. An empty property disables grouping. */
+    setGrouping(groupProperty: string, groupDirection: SortOrder = 'asc'): void {
+        this.viewState = {
+            ...this.viewState,
+            groupProperty: groupProperty.trim(),
+            groupDirection,
+        };
     }
 
     /** Load items for the current selection; built-ins remain owned by their media services. */
@@ -126,7 +174,16 @@ export class LibrarySurfaceController {
         const items = await this.loadItems();
         if (this.getSelectionId() !== selectionAtStart || !this.isCustomSelected()) return;
 
-        this.renderer.render(parent, items, definition, options);
+        const state = this.viewState;
+        this.renderer.render(parent, items, definition, {
+            ...options,
+            rules: state.filterGroup,
+            sorts: state.sorts,
+            group: state.groupProperty
+                ? { mode: 'field', field: state.groupProperty, order: state.groupDirection }
+                : { mode: 'none', order: state.groupDirection },
+            fields: options.fields ?? definition.schema.fields,
+        });
     }
 
     /** Render the current custom selection without duplicating selection checks in the caller. */
@@ -156,4 +213,31 @@ export class LibrarySurfaceController {
     async loadCustomItems(): Promise<LibraryItem[]> {
         return this.loadItems();
     }
+}
+
+function createDefaultViewState(): UnifiedLibraryViewState {
+    return {
+        sorts: [],
+        filterMode: 'and',
+        filters: [],
+        filterGroup: createEmptyFilterGroup('and', 'root'),
+        groupProperty: '',
+        groupDirection: 'asc',
+        savedViews: [],
+        activeSavedViewId: '',
+    };
+}
+
+function viewStateFromDefinition(definition: LibraryDefinition): UnifiedLibraryViewState {
+    const filterGroup = definition.filterGroup ?? createEmptyFilterGroup('and', 'root');
+    return {
+        sorts: definition.sorts?.map((sort) => ({ ...sort })) ?? [],
+        filterMode: filterGroup.mode,
+        filters: [],
+        filterGroup,
+        groupProperty: definition.groupProperty ?? '',
+        groupDirection: definition.groupDirection ?? 'asc',
+        savedViews: [],
+        activeSavedViewId: '',
+    };
 }

@@ -87,6 +87,19 @@ function normalizeCustomLibrary(value: unknown): PersistedLibraryDefinition | nu
             coverField: typeof schema.coverField === 'string' ? schema.coverField : undefined,
             titleField: typeof schema.titleField === 'string' ? schema.titleField : undefined,
         },
+        propertyScope: value.propertyScope === 'vault' ? 'vault' : 'folder',
+        fileNameTemplate: typeof value.fileNameTemplate === 'string' ? value.fileNameTemplate : undefined,
+        orientation: value.orientation === 'horizontal' ? 'horizontal' : 'vertical',
+        cardSize: ['small', 'medium', 'large'].includes(String(value.cardSize))
+            ? value.cardSize as LibraryDefinition['cardSize']
+            : 'medium',
+        columns: normalizePositiveInt(value.columns),
+        customCardMinWidth: normalizePositiveInt(value.customCardMinWidth),
+        customCardMinHeight: normalizePositiveInt(value.customCardMinHeight),
+        customCardImageRatio: normalizePositiveNumber(value.customCardImageRatio),
+        customHorizontalCardMinWidth: normalizePositiveInt(value.customHorizontalCardMinWidth),
+        customHorizontalCardHeight: normalizePositiveInt(value.customHorizontalCardHeight),
+        mediaType: normalizeMediaType(value.mediaType),
     };
 }
 
@@ -110,6 +123,20 @@ function normalizeField(value: unknown): FieldDefinition | null {
                 .map((option) => ({ value: option.value as string, label: option.label as string }))
             : undefined,
     };
+}
+
+function normalizePositiveInt(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+function normalizePositiveNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
+function normalizeMediaType(value: unknown): LibraryDefinition['mediaType'] {
+    return ['game', 'anime', 'movie', 'series', 'book', 'manga'].includes(String(value))
+        ? value as LibraryDefinition['mediaType']
+        : undefined;
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

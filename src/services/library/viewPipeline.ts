@@ -1,15 +1,27 @@
 import type { FieldDefinition, FilterRule, GroupSpec, LibraryFieldType, SortSpec } from '../../types';
 import type { LibraryItem } from './types';
+import { isFilterGroup, type FilterGroup, type FilterNode } from './unifiedViewState';
 
 export interface LibraryGroup<T> { key: string; label: string; items: T[]; }
 
 export function getLibraryValue(item: LibraryItem, field: string): unknown {
-    return item.values[field] ?? (field.startsWith('yaml:') ? item.values[field.slice(5)] : null);
+    if (Object.prototype.hasOwnProperty.call(item.values, field)) return item.values[field];
+    if (field.startsWith('yaml:')) {
+        const rawField = field.slice(5);
+        if (Object.prototype.hasOwnProperty.call(item.values, rawField)) return item.values[rawField];
+    }
+    return null;
 }
 
-export function filterLibraryItems(items: LibraryItem[], rules: FilterRule[]): LibraryItem[] {
-    if (rules.length === 0) return [...items];
-    return items.filter((item) => rules.every((rule) => matchesFilterRule(getLibraryValue(item, rule.field), rule)));
+export function filterLibraryItems(items: LibraryItem[], rules: FilterRule[]): LibraryItem[];
+export function filterLibraryItems(items: LibraryItem[], group: FilterGroup): LibraryItem[];
+export function filterLibraryItems(items: LibraryItem[], rulesOrGroup: FilterRule[] | FilterGroup): LibraryItem[] {
+    if (Array.isArray(rulesOrGroup)) {
+        if (rulesOrGroup.length === 0) return [...items];
+        return items.filter((item) => rulesOrGroup.every((rule) => matchesFilterRule(getLibraryValue(item, rule.field), rule)));
+    }
+    if (rulesOrGroup.children.length === 0 || rulesOrGroup.mode === 'none') return [...items];
+    return items.filter((item) => matchesFilterGroup(item, rulesOrGroup));
 }
 
 export function sortLibraryItems(items: LibraryItem[], sorts: SortSpec[], fields: FieldDefinition[] = []): LibraryItem[] {
@@ -38,8 +50,19 @@ export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): Libra
     return result;
 }
 
-export function applyLibraryView(items: LibraryItem[], rules: FilterRule[], sorts: SortSpec[], group: GroupSpec, fields: FieldDefinition[] = []): LibraryGroup<LibraryItem>[] {
+export function applyLibraryView(items: LibraryItem[], rules: FilterRule[] | FilterGroup, sorts: SortSpec[], group: GroupSpec, fields: FieldDefinition[] = []): LibraryGroup<LibraryItem>[] {
     return groupLibraryItems(sortLibraryItems(filterLibraryItems(items, rules), sorts, fields), group);
+}
+
+export function matchesFilterGroup(item: LibraryItem, group: FilterGroup): boolean {
+    if (group.children.length === 0 || group.mode === 'none') return true;
+    const results = group.children.map((child) => matchesFilterNode(item, child));
+    if (group.mode === 'or') return results.some(Boolean);
+    return results.every(Boolean);
+}
+
+function matchesFilterNode(item: LibraryItem, node: FilterNode): boolean {
+    return isFilterGroup(node) ? matchesFilterGroup(item, node) : matchesFilterRule(getLibraryValue(item, node.field), node);
 }
 
 export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean {

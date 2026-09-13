@@ -112,6 +112,7 @@ export class LibrarySurfaceController {
             return;
         }
 
+        const selectionAtStart = this.getSelectionId();
         const definition = this.getCurrentOption()?.definition;
         if (!definition || definition.kind !== 'custom') {
             parent.empty();
@@ -119,6 +120,8 @@ export class LibrarySurfaceController {
         }
 
         const items = await this.loadItems();
+        if (this.getSelectionId() !== selectionAtStart || !this.isCustomSelected()) return;
+
         this.renderer.render(parent, items, definition, options);
     }
 

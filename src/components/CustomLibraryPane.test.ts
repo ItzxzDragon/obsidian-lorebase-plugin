@@ -33,4 +33,28 @@ describe('CustomLibraryPane', () => {
         pane.destroy();
         expect(parent.querySelector('.lorebase-custom-library-pane')).toBeNull();
     });
+
+    it('toggles content visibility without destroying the pane', () => {
+        const parent = document.createElement('div');
+        const manager = {
+            listCustomLibraries: vi.fn().mockReturnValue([library]),
+            registry: { get: vi.fn() },
+            loadItems: vi.fn().mockResolvedValue([]),
+        } as any;
+        const pane = new CustomLibraryPane({ workspace: {} } as any, manager, parent, { onActiveLibraryChange: vi.fn() });
+        const content = parent.querySelector('.lorebase-custom-library-content') as HTMLElement;
+
+        expect(content.classList.contains('is-hidden')).toBe(true);
+        expect(content.getAttribute('aria-hidden')).toBe('true');
+
+        pane.setContentVisible(true);
+        expect(content.classList.contains('is-hidden')).toBe(false);
+        expect(content.getAttribute('aria-hidden')).toBe('false');
+
+        pane.setContentVisible(false);
+        expect(content.classList.contains('is-hidden')).toBe(true);
+        expect(content.getAttribute('aria-hidden')).toBe('true');
+
+        pane.destroy();
+    });
 });

@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { LibrarySurfaceController } from './LibrarySurfaceController';
 import type { LibraryManager } from './LibraryManager';
 import type { LibraryDefinition } from './types';
+import type { LibrarySelectionOption } from './LibrarySelection';
 
 function customLibrary(id = 'my-library'): LibraryDefinition {
     return {
@@ -11,6 +12,17 @@ function customLibrary(id = 'my-library'): LibraryDefinition {
         kind: 'custom',
         source: { kind: 'folder', folder: 'Library' },
         propertyScope: 'folder',
+        schema: { fields: [] },
+    };
+}
+
+function builtinLibrary(): LibraryDefinition {
+    return {
+        id: 'game',
+        name: 'Games',
+        icon: 'gamepad-2',
+        kind: 'builtin',
+        source: { kind: 'builtin', mediaType: 'game' },
         schema: { fields: [] },
     };
 }
@@ -40,6 +52,48 @@ describe('LibrarySurfaceController', () => {
             kind: 'custom',
             name: definition.name,
         });
+    });
+
+    it('applies a custom option emitted by the shared selector', () => {
+        const definition = customLibrary();
+        const option: LibrarySelectionOption = {
+            id: definition.id,
+            name: definition.name,
+            icon: definition.icon,
+            kind: 'custom',
+            definition,
+        };
+        const manager = {
+            getLibrary: vi.fn((id: string) => id === definition.id ? definition : undefined),
+            listLibraries: vi.fn(() => [definition]),
+        } as unknown as LibraryManager;
+        const controller = new LibrarySurfaceController(manager, 'game');
+
+        controller.selectOption(option);
+
+        expect(controller.getSnapshot()).toMatchObject({
+            selectionId: definition.id,
+            isCustom: true,
+        });
+    });
+
+    it('applies a built-in option emitted by the shared selector', () => {
+        const definition = builtinLibrary();
+        const option: LibrarySelectionOption = {
+            id: definition.id,
+            name: definition.name,
+            icon: definition.icon,
+            kind: 'builtin',
+            definition,
+        };
+        const manager = {
+            listLibraries: vi.fn(() => [definition]),
+        } as unknown as LibraryManager;
+        const controller = new LibrarySurfaceController(manager, 'anime');
+
+        controller.selectOption(option);
+
+        expect(controller.getSelection()).toEqual({ kind: 'builtin', mediaType: 'game' });
     });
 
     it('rejects unknown custom libraries', () => {

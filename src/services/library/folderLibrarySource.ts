@@ -16,6 +16,23 @@ export class FolderLibrarySource {
         return files.map((file) => this.toLibraryItem(file, definition.schema.fields, definition.schema.titleField, definition.schema.coverField));
     }
 
+    /** Returns YAML properties available to the library's schema editor. */
+    getAvailableProperties(definition: LibraryDefinition): string[] {
+        if (definition.source.kind !== 'folder') return [];
+
+        const folder = normalizeFolder(definition.source.folder);
+        const files = this.app.vault.getMarkdownFiles()
+            .filter((file) => definition.propertyScope === 'vault' || isInsideFolder(file.path, folder));
+        const properties = new Set<string>();
+
+        for (const file of files) {
+            const frontmatter = getLibraryFrontmatter(this.app.metadataCache.getFileCache(file));
+            for (const key of Object.keys(frontmatter)) properties.add(key);
+        }
+
+        return Array.from(properties).sort((a, b) => a.localeCompare(b, undefined, { sensitivity: 'base' }));
+    }
+
     private toLibraryItem(
         file: TFile,
         fields: FieldDefinition[],

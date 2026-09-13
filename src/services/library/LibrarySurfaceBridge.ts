@@ -1,7 +1,7 @@
 import type { LibraryViewState, LorebasePluginInterface } from '../../types';
 import { LibrarySelector } from '../../components/toolbar/LibrarySelector';
 import { LibrarySurfaceController } from './LibrarySurfaceController';
-import { LibraryManager } from './LibraryManager';
+import type { LibraryManager } from './LibraryManager';
 import { LibraryView } from '../../views/LibraryView';
 
 const INSTALLED = Symbol('lorebase-library-surface-bridge-installed');
@@ -34,6 +34,7 @@ export function installLibrarySurfaceBridge(manager: LibraryManager): void {
         this.__librarySurfaceObserver?.disconnect();
         this.__librarySurfaceObserver = undefined;
         this.__librarySurfaceController = undefined;
+        this[ATTACHED] = false;
         await originalOnClose.call(this);
     };
 }

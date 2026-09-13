@@ -70,4 +70,27 @@ describe('LibraryManager', () => {
             customLibraries: [expect.objectContaining({ id: 'wishlist', kind: 'custom' })],
         }));
     });
+
+    it('lists built-in and custom libraries separately', async () => {
+        const stored = {
+            customLibraries: [
+                {
+                    kind: 'custom',
+                    id: 'wishlist',
+                    name: 'Wishlist',
+                    icon: 'library',
+                    source: { kind: 'folder', folder: 'Wishlist' },
+                    schema: { fields: [] },
+                },
+            ],
+        };
+        const manager = new LibraryManager(createApp(), () => stored, async () => undefined);
+
+        await manager.load();
+
+        expect(manager.listLibraries().map((library) => library.id)).toEqual([
+            'game', 'anime', 'movie', 'series', 'book', 'manga', 'wishlist',
+        ]);
+        expect(manager.listCustomLibraries().map((library) => library.id)).toEqual(['wishlist']);
+    });
 });

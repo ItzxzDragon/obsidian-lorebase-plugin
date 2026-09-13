@@ -1,4 +1,5 @@
 import { FilterState, LibraryViewState, MediaType, SortField, SortOrder, ViewMode } from '../../types';
+import type { LibraryDefinition } from '../../services/library/types';
 
 export interface ToolbarCallbacks {
     onSortChange: (field: SortField, order: SortOrder) => void;
@@ -18,6 +19,11 @@ export interface ToolbarCallbacks {
     onResetView: () => void;
     onMediaTypeChange: (mediaType: MediaType) => void;
     onCustomLibraryChange?: (libraryId: string | null) => void;
+}
+
+export interface ToolbarLibraryContext {
+    currentLibraryId?: string;
+    customLibraries: LibraryDefinition[];
 }
 
 export type TagSummary = {

@@ -2,14 +2,16 @@ import type { FieldDefinition, FilterRule, GroupSpec, SortSpec } from '../../typ
 import type { LibraryDefinition, LibraryItem } from './types';
 import { LibraryManager } from './LibraryManager';
 import { applyLibraryView, type LibraryGroup } from './viewPipeline';
+import { fromLegacyViewState, type UnifiedLibraryViewState } from './unifiedViewState';
 
+/** Legacy query shape kept temporarily as an adapter for callers not yet migrated to the main Toolbar. */
 export interface CustomLibraryViewState {
     rules: FilterRule[];
     sorts: SortSpec[];
     group: GroupSpec;
 }
 
-/** Loads a custom library and applies the shared filter/sort/group pipeline. */
+/** Loads custom-library data while keeping view state independent from the eventual UI integration. */
 export class CustomLibraryViewModel {
     constructor(private readonly manager: LibraryManager) {}
 
@@ -27,8 +29,22 @@ export class CustomLibraryViewModel {
         return definition ? this.manager.loadItems(id) : [];
     }
 
-    async query(id: string, state: CustomLibraryViewState): Promise<LibraryGroup<LibraryItem>[]> {
+    async query(id: string, state: CustomLibraryViewState | UnifiedLibraryViewState): Promise<LibraryGroup<LibraryItem>[]> {
         const items = await this.load(id);
-        return applyLibraryView(items, state.rules, state.sorts, state.group, this.getFields(id));
+        const legacy = 'rules' in state && 'sorts' in state && 'group' in state;
+        const normalized = legacy
+            ? fromLegacyViewState(state)
+            : state;
+        return applyLibraryView(
+            items,
+            normalized.filterGroup,
+            normalized.sorts,
+            {
+                mode: normalized.groupProperty ? 'field' : 'none',
+                field: normalized.groupProperty || undefined,
+                order: normalized.groupDirection,
+            },
+            this.getFields(id),
+        );
     }
 }

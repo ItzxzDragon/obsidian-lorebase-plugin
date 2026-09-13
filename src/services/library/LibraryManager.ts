@@ -63,27 +63,50 @@ export class LibraryManager {
         if (!id || !name || !folder) throw new Error('Library id, name, and folder are required');
         if (this.registry.has(id)) throw new Error(`Library already exists: ${id}`);
 
-        const fields = (input.fields ?? []).map(toFieldDefinition);
-        const fieldIds = new Set<string>();
-        for (const field of fields) {
-            if (fieldIds.has(field.id)) throw new Error(`Duplicate library field: ${field.id}`);
-            fieldIds.add(field.id);
-        }
-
-        const titleField = normalizeOptionalFieldId(input.titleField);
-        const coverField = normalizeOptionalFieldId(input.coverField);
-        if (titleField && !fieldIds.has(titleField)) throw new Error(`Unknown title field: ${titleField}`);
-        if (coverField && !fieldIds.has(coverField)) throw new Error(`Unknown cover field: ${coverField}`);
-
+        const schema = normalizeSchema(input.fields ?? [], input.titleField, input.coverField);
         const created = this.catalog.create({
             id,
             name,
             icon: input.icon?.trim() || 'library',
             source: { kind: 'folder', folder },
-            schema: { fields, titleField, coverField },
+            schema,
         });
         await this.save();
         return created;
+    }
+
+    async updateCustomLibrary(id: string, input: {
+        name?: string;
+        icon?: string;
+        folder?: string;
+        fields?: LibraryFieldInput[];
+        titleField?: string;
+        coverField?: string;
+    }): Promise<LibraryDefinition> {
+        const existing = this.catalog.getCustomDefinition(id);
+        const name = input.name === undefined ? existing.name : input.name.trim();
+        const folder = input.folder === undefined
+            ? existing.source.kind === 'folder' ? existing.source.folder : ''
+            : normalizeFolder(input.folder);
+        if (!name || !folder) throw new Error('Library name and folder are required');
+
+        const fields = input.fields === undefined
+            ? existing.schema.fields
+            : input.fields.map(toFieldDefinition);
+        const titleField = input.titleField === undefined ? existing.schema.titleField : normalizeOptionalFieldId(input.titleField);
+        const coverField = input.coverField === undefined ? existing.schema.coverField : normalizeOptionalFieldId(input.coverField);
+        const schema = validateSchema(fields, titleField, coverField);
+
+        const updated: LibraryDefinition = {
+            ...existing,
+            name,
+            icon: input.icon === undefined ? existing.icon : input.icon.trim() || 'library',
+            source: { kind: 'folder', folder },
+            schema,
+        };
+        this.registry.upsert({ ...updated, kind: 'custom' } as LibraryDefinition);
+        await this.save();
+        return updated;
     }
 
     async renameCustomLibrary(id: string, name: string): Promise<LibraryDefinition> {
@@ -124,6 +147,22 @@ function toFieldDefinition(field: LibraryFieldInput): FieldDefinition {
         source: 'yaml',
         operators: field.operators ?? defaultOperators(field.type),
     };
+}
+
+function normalizeSchema(fields: LibraryFieldInput[], titleField?: string, coverField?: string): LibraryDefinition['schema'] {
+    const definitions = fields.map(toFieldDefinition);
+    return validateSchema(definitions, normalizeOptionalFieldId(titleField), normalizeOptionalFieldId(coverField));
+}
+
+function validateSchema(fields: FieldDefinition[], titleField?: string, coverField?: string): LibraryDefinition['schema'] {
+    const fieldIds = new Set<string>();
+    for (const field of fields) {
+        if (fieldIds.has(field.id)) throw new Error(`Duplicate library field: ${field.id}`);
+        fieldIds.add(field.id);
+    }
+    if (titleField && !fieldIds.has(titleField)) throw new Error(`Unknown title field: ${titleField}`);
+    if (coverField && !fieldIds.has(coverField)) throw new Error(`Unknown cover field: ${coverField}`);
+    return { fields, titleField, coverField };
 }
 
 function normalizeOptionalFieldId(field: string | undefined): string | undefined {

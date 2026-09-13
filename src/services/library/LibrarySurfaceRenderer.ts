@@ -37,9 +37,8 @@ export class LibrarySurfaceRenderer {
 
             const grid = section.createDiv({ cls: 'lorebase-library-surface-grid' });
             for (const item of result.items) {
-                new LibraryItemCard(grid, item, definition, {
-                    onClick: options.onClick ?? (() => undefined),
-                    onContextMenu: options.onContextMenu,
+                new LibraryItemCard(grid, item, {
+                    onClick: options.onClick,
                 });
             }
         }

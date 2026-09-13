@@ -28,6 +28,25 @@ describe('library view pipeline', () => {
         expect(groups.map((entry) => entry.label)).toEqual(['A', 'Z']);
         expect(groups[1].items.map((entry) => entry.values.name)).toEqual(['A', 'C']);
     });
+    it('groups by an arbitrary field and keeps array values stable', () => {
+        const items = [
+            item('A', { status: 'Active' }),
+            item('B', { status: 'completed' }),
+            item('C', { status: ['Active', 'Featured'] }),
+            item('D', { status: undefined }),
+        ];
+        const group: GroupSpec = { mode: 'field', field: 'status', order: 'asc' };
+        const groups = groupLibraryItems(items, group);
+        expect(groups.map((entry) => entry.label)).toEqual(['Active', 'Active, Featured', 'completed', 'Ungrouped']);
+        expect(groups[0].items.map((entry) => entry.values.name)).toEqual(['A']);
+        expect(groups[1].items.map((entry) => entry.values.name)).toEqual(['C']);
+        expect(groups[3].items.map((entry) => entry.values.name)).toEqual(['D']);
+    });
+    it('supports yaml-prefixed field grouping', () => {
+        const items = [item('A', { priority: 'High' }), item('B', { 'yaml:priority': 'Low' })];
+        const group: GroupSpec = { mode: 'field', field: 'yaml:priority', order: 'asc' };
+        expect(groupLibraryItems(items, group).map((entry) => entry.label)).toEqual(['High', 'Low']);
+    });
     it('composes filter, sort and group', () => {
         const items = [item('B', { series: 'X', rating: 8 }), item('A', { series: 'X', rating: 9 }), item('C', { series: 'Y', rating: 6 })];
         const groups = applyLibraryView(items, [rule('rating', 'greater', 7)], [{ field: 'rating', order: 'desc' }], { mode: 'series', order: 'asc' });

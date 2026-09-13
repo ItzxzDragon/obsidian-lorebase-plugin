@@ -83,16 +83,15 @@ export class LibraryManager {
         titleField?: string;
         coverField?: string;
     }): Promise<LibraryDefinition> {
-        const existing = this.catalog.getCustomDefinition(id);
+        const existing = this.registry.get(id);
+        if (!existing || !isCustom(existing) || existing.source.kind !== 'folder') {
+            throw new Error(`Custom library not found: ${id}`);
+        }
         const name = input.name === undefined ? existing.name : input.name.trim();
-        const folder = input.folder === undefined
-            ? existing.source.kind === 'folder' ? existing.source.folder : ''
-            : normalizeFolder(input.folder);
+        const folder = input.folder === undefined ? existing.source.folder : normalizeFolder(input.folder);
         if (!name || !folder) throw new Error('Library name and folder are required');
 
-        const fields = input.fields === undefined
-            ? existing.schema.fields
-            : input.fields.map(toFieldDefinition);
+        const fields = input.fields === undefined ? existing.schema.fields : input.fields.map(toFieldDefinition);
         const titleField = input.titleField === undefined ? existing.schema.titleField : normalizeOptionalFieldId(input.titleField);
         const coverField = input.coverField === undefined ? existing.schema.coverField : normalizeOptionalFieldId(input.coverField);
         const schema = validateSchema(fields, titleField, coverField);

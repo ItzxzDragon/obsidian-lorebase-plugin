@@ -25,10 +25,10 @@ export class LibraryItemCard {
         card.setAttribute('tabindex', '0');
         card.setAttribute('aria-label', this.title());
 
-        const cover = this.cover();
+        const cover = this.coverUrl();
         if (cover) {
             const image = card.createDiv({ cls: 'lorebase-library-item-card-cover' });
-            image.style.backgroundImage = `url(${CSS.escape(cover)})`;
+            image.style.backgroundImage = `url("${cover.replace(/(["\\])/g, '\\$1')}")`;
         } else {
             const placeholder = card.createDiv({ cls: 'lorebase-library-item-card-placeholder' });
             setIcon(placeholder, this.definition.icon || 'library');
@@ -65,13 +65,14 @@ export class LibraryItemCard {
         return String(value ?? getLibraryValue(this.item, 'name') ?? this.item.file.basename).trim() || this.item.file.basename;
     }
 
-    private cover(): string | null {
+    private coverUrl(): string | null {
         const field = this.definition.schema.coverField;
         const value = field ? getLibraryValue(this.item, field) : null;
         const raw = String(value ?? '').trim();
         if (!raw) return null;
         const wiki = raw.match(/^!\[\[([^\]|]+)(?:\|[^\]]+)?\]\]$/)?.[1];
-        return wiki || raw;
+        const candidate = wiki || raw;
+        return /^https?:\/\//i.test(candidate) ? candidate : null;
     }
 
     private summary(): string {

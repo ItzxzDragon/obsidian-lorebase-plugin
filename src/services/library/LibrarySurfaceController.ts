@@ -1,4 +1,4 @@
-import type { FieldDefinition, GroupSpec, MediaType } from '../../types';
+import type { FieldDefinition, MediaType } from '../../types';
 import type { LibraryManager } from './LibraryManager';
 import {
     buildLibrarySelectionOptions,
@@ -122,16 +122,10 @@ export class LibrarySurfaceController {
         this.renderer.render(parent, items, definition, options);
     }
 
-    /** Resolve the fields used by the active custom library's shared pipeline. */
+    /** Resolve the schema fields used by the active custom library's shared pipeline. */
     getCurrentCustomFields(): FieldDefinition[] {
         const definition = this.getCurrentOption()?.definition;
         return definition?.kind === 'custom' ? definition.schema.fields : [];
-    }
-
-    /** Resolve the group configuration used by the active custom library. */
-    getCurrentCustomGroup(): GroupSpec | null {
-        const definition = this.getCurrentOption()?.definition;
-        return definition?.kind === 'custom' && definition.group ? definition.group : null;
     }
 
     /** @deprecated Use loadItems(). */

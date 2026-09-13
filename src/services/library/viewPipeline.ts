@@ -1,4 +1,4 @@
-import type { FilterRule, GroupSpec, SortSpec } from '../../types';
+import type { FilterRule, GroupSpec, LibraryFieldType, SortSpec } from '../../types';
 import type { LibraryItem } from './types';
 
 export interface LibraryGroup<T> {
@@ -20,7 +20,7 @@ export function sortLibraryItems(items: LibraryItem[], sorts: SortSpec[]): Libra
     if (sorts.length === 0) return [...items];
     return items.map((item, index) => ({ item, index })).sort((a, b) => {
         for (const spec of sorts) {
-            const result = compareValues(getLibraryValue(a.item, spec.field), getLibraryValue(b.item, spec.field));
+            const result = compareValues(getLibraryValue(a.item, spec.field), getLibraryValue(b.item, spec.field), fieldTypeForSort(spec.field));
             if (result !== 0) return spec.order === 'desc' ? -result : result;
         }
         return a.index - b.index;
@@ -37,7 +37,7 @@ export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): Libra
         groups.set(value.key, bucket);
     }
     const result = Array.from(groups, ([key, groupItems]) => ({ key, label: groupItems[0] ? groupValue(groupItems[0], group.mode).label : key, items: groupItems }));
-    result.sort((a, b) => group.order === 'desc' ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key));
+    result.sort((a, b) => group.order === 'desc' ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key, undefined, { numeric: true }));
     return result;
 }
 
@@ -46,20 +46,20 @@ export function applyLibraryView(items: LibraryItem[], rules: FilterRule[], sort
 }
 
 export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean {
-    const value = normalizeValue(rawValue);
-    const target = normalizeValue(rule.value);
+    const value = normalizeValue(rawValue, rule.fieldType);
+    const target = normalizeValue(rule.value, rule.fieldType);
     switch (rule.operator) {
         case 'empty': return isEmpty(value);
         case 'notEmpty': return !isEmpty(value);
-        case 'equals': return compareValues(value, target) === 0;
-        case 'notEquals': return compareValues(value, target) !== 0;
+        case 'equals': return compareValues(value, target, rule.fieldType) === 0;
+        case 'notEquals': return compareValues(value, target, rule.fieldType) !== 0;
         case 'contains': return includesText(value, target);
         case 'notContains': return !includesText(value, target);
-        case 'containsAny': return toArray(value).some((entry) => toArray(rule.value).some((wanted) => compareValues(normalizeValue(entry), normalizeValue(wanted)) === 0));
-        case 'containsAll': return toArray(rule.value).every((wanted) => toArray(value).some((entry) => compareValues(normalizeValue(entry), normalizeValue(wanted)) === 0));
-        case 'greater': return compareValues(value, target) > 0;
-        case 'less': return compareValues(value, target) < 0;
-        case 'between': return compareValues(value, target) >= 0 && compareValues(value, normalizeValue(rule.valueTo)) <= 0;
+        case 'containsAny': return toArray(value).some((entry) => toArray(rule.value).some((wanted) => compareValues(normalizeValue(entry, rule.fieldType), normalizeValue(wanted, rule.fieldType), rule.fieldType) === 0));
+        case 'containsAll': return toArray(rule.value).every((wanted) => toArray(value).some((entry) => compareValues(normalizeValue(entry, rule.fieldType), normalizeValue(wanted, rule.fieldType), rule.fieldType) === 0));
+        case 'greater': return compareValues(value, target, rule.fieldType) > 0;
+        case 'less': return compareValues(value, target, rule.fieldType) < 0;
+        case 'between': return compareValues(value, target, rule.fieldType) >= 0 && compareValues(value, normalizeValue(rule.valueTo, rule.fieldType), rule.fieldType) <= 0;
         case 'isTrue': return value === true;
         case 'isFalse': return value === false;
         case 'thisMonth': return sameDateBucket(value, new Date(), 'month');
@@ -68,25 +68,43 @@ export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean 
     }
 }
 
-function normalizeValue(value: unknown): unknown {
+function normalizeValue(value: unknown, type?: LibraryFieldType): unknown {
     if (value instanceof Date) return value.getTime();
-    if (typeof value === 'string') {
-        const trimmed = value.trim();
-        if (!trimmed) return '';
-        const date = Date.parse(trimmed);
-        return Number.isNaN(date) ? trimmed.toLowerCase() : date;
+    if (type === 'date') {
+        if (typeof value === 'number') return value;
+        const timestamp = Date.parse(String(value ?? ''));
+        return Number.isNaN(timestamp) ? value : timestamp;
     }
+    if (type === 'number') {
+        if (typeof value === 'number') return value;
+        const number = Number(String(value ?? '').trim());
+        return Number.isNaN(number) ? value : number;
+    }
+    if (type === 'boolean') {
+        if (typeof value === 'boolean') return value;
+        const normalized = String(value ?? '').trim().toLowerCase();
+        if (normalized === 'true') return true;
+        if (normalized === 'false') return false;
+    }
+    if (Array.isArray(value)) return value.map((entry) => normalizeValue(entry, type === 'list' ? 'text' : type));
+    if (typeof value === 'string') return value.trim().toLowerCase();
     return value;
 }
 
-function compareValues(a: unknown, b: unknown): number {
-    const left = normalizeValue(a);
-    const right = normalizeValue(b);
+function compareValues(a: unknown, b: unknown, type?: LibraryFieldType): number {
+    const left = normalizeValue(a, type);
+    const right = normalizeValue(b, type);
     if (left === right) return 0;
     if (left === null || left === undefined || left === '') return -1;
     if (right === null || right === undefined || right === '') return 1;
     if (typeof left === 'number' && typeof right === 'number') return left < right ? -1 : 1;
     return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
+}
+
+function fieldTypeForSort(field: string): LibraryFieldType | undefined {
+    if (field === 'year' || field === 'rating') return 'number';
+    if (field.startsWith('date')) return 'date';
+    return undefined;
 }
 
 function includesText(value: unknown, target: unknown): boolean {

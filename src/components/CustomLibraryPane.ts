@@ -1,6 +1,6 @@
 import type { App } from 'obsidian';
 import type { FieldDefinition, FilterRule, GroupSpec, SortSpec } from '../types';
-import { CustomLibraryCard } from './CustomLibraryCard';
+import { renderCustomLibraryCard } from './CustomLibraryCard';
 import { CustomLibrarySelector } from './CustomLibrarySelector';
 import { CustomLibraryController } from '../services/library/CustomLibraryController';
 import { CustomLibraryViewModel } from '../services/library/CustomLibraryViewModel';
@@ -28,7 +28,7 @@ export class CustomLibraryPane {
         this.controller = new CustomLibraryController(new CustomLibraryViewModel(manager));
         this.renderSelector();
         this.renderControls();
-        this.renderContent();
+        void this.renderContent();
     }
 
     destroy(): void {
@@ -43,7 +43,7 @@ export class CustomLibraryPane {
             this.container,
             this.manager.listCustomLibraries(),
             this.activeLibraryId,
-            { onSelect: (id) => this.selectLibrary(id) },
+            { onSelect: (id) => void this.selectLibrary(id) },
         );
     }
 
@@ -51,7 +51,7 @@ export class CustomLibraryPane {
         const controls = this.container.createDiv({ cls: 'lorebase-custom-library-controls' });
         const search = controls.createEl('input', {
             cls: 'lorebase-custom-library-search',
-            attr: { type: 'search', placeholder: 'Search library', 'aria-label': 'Search library' },
+            attr: { type: 'search', placeholder: 'Search by title', 'aria-label': 'Search by title' },
         });
         search.value = this.searchTerm;
         search.addEventListener('input', () => {
@@ -109,6 +109,7 @@ export class CustomLibraryPane {
         this.sortOrder = 'asc';
         this.group = { mode: 'none', order: 'asc' };
         this.container.empty();
+        this.selector = null;
         this.renderSelector();
         this.renderControls();
         await this.renderContent();
@@ -125,7 +126,7 @@ export class CustomLibraryPane {
 
         content.createDiv({ cls: 'lorebase-custom-library-title', text: definition.name });
         const fields = definition.schema.fields;
-        const rules = this.createSearchRules(fields);
+        const rules = this.createSearchRules();
         const sorts: SortSpec[] = [{ field: this.sortField as SortSpec['field'], order: this.sortOrder }];
         const groups = await this.controller.query({ rules, sorts, group: this.group });
         if (generation !== this.renderGeneration) return;
@@ -140,26 +141,21 @@ export class CustomLibraryPane {
             if (group.label) section.createDiv({ cls: 'lorebase-custom-library-group-title', text: group.label });
             const grid = section.createDiv({ cls: 'lorebase-custom-library-grid' });
             for (const item of group.items) {
-                CustomLibraryCard.render(grid, item, fields, (entry) => this.openItem(entry));
+                renderCustomLibraryCard(grid, item, fields, { onOpen: (entry) => this.openItem(entry) });
             }
         }
     }
 
-    private createSearchRules(fields: FieldDefinition[]): FilterRule[] {
-        if (!this.searchTerm.trim()) return [];
+    private createSearchRules(): FilterRule[] {
+        const value = this.searchTerm.trim();
+        if (!value) return [];
         return [{
             id: 'custom-library-search',
             field: 'name',
             fieldType: 'text',
             operator: 'contains',
-            value: this.searchTerm.trim(),
-        }, ...fields.filter((field) => field.type === 'text' || field.type === 'list').map((field) => ({
-            id: `custom-library-search-${field.id}`,
-            field: field.id,
-            fieldType: field.type,
-            operator: 'contains' as const,
-            value: this.searchTerm.trim(),
-        }))];
+            value,
+        }];
     }
 
     private getActiveDefinition(): LibraryDefinition | undefined {

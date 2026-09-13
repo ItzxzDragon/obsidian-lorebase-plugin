@@ -3,6 +3,7 @@ import { LibrarySurfaceController } from './LibrarySurfaceController';
 import type { LibraryManager } from './LibraryManager';
 import type { LibraryDefinition } from './types';
 import type { LibrarySelectionOption } from './LibrarySelection';
+import type { LibrarySurfaceRenderer } from './LibrarySurfaceRenderer';
 
 function customLibrary(id = 'my-library'): LibraryDefinition {
     return {
@@ -94,6 +95,27 @@ describe('LibrarySurfaceController', () => {
         controller.selectOption(option);
 
         expect(controller.getSelection()).toEqual({ kind: 'builtin', mediaType: 'game' });
+    });
+
+    it('renders the selected custom library through the shared renderer', async () => {
+        const definition = customLibrary();
+        const items = [{ file: { path: 'Library/one.md' }, values: { name: 'One' } }];
+        const manager = {
+            getLibrary: vi.fn((id: string) => id === definition.id ? definition : undefined),
+            listLibraries: vi.fn(() => [definition]),
+            loadItems: vi.fn(async () => items),
+        } as unknown as LibraryManager;
+        const renderer = {
+            render: vi.fn(),
+        } as unknown as LibrarySurfaceRenderer;
+        const controller = new LibrarySurfaceController(manager, 'game', { renderer });
+        const parent = document.createElement('div');
+
+        controller.selectCustom(definition.id);
+        await controller.renderCustomLibrary(parent, { sorts: [] });
+
+        expect(manager.loadItems).toHaveBeenCalledWith(definition.id);
+        expect(renderer.render).toHaveBeenCalledWith(parent, items, definition, { sorts: [] });
     });
 
     it('rejects unknown custom libraries', () => {

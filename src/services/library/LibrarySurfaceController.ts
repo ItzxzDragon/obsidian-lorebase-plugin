@@ -64,6 +64,19 @@ export class LibrarySurfaceController {
         return this.active.kind === 'custom' ? this.active.libraryId : null;
     }
 
+    /** Apply an option emitted by the shared Library selector. */
+    selectOption(option: LibrarySelectionOption): void {
+        if (option.kind === 'custom') {
+            this.selectCustom(option.id);
+            return;
+        }
+
+        if (option.definition.source.kind !== 'builtin') {
+            throw new Error(`Built-in library has an invalid source: ${option.id}`);
+        }
+        this.selectBuiltin(option.definition.source.mediaType);
+    }
+
     selectBuiltin(mediaType: MediaType): void {
         this.active = builtinSelection(mediaType);
     }

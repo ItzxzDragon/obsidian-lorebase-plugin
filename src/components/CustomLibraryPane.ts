@@ -1,5 +1,5 @@
 import type { App } from 'obsidian';
-import type { FieldDefinition, FilterRule, GroupSpec, SortSpec } from '../types';
+import type { FilterRule, GroupSpec, SortSpec } from '../types';
 import { renderCustomLibraryCard } from './CustomLibraryCard';
 import { CustomLibrarySelector } from './CustomLibrarySelector';
 import { CustomLibraryController } from '../services/library/CustomLibraryController';
@@ -16,6 +16,8 @@ export class CustomLibraryPane {
     private readonly container: HTMLElement;
     private readonly controller: CustomLibraryController;
     private selector: CustomLibrarySelector | null = null;
+    private controls: HTMLElement | null = null;
+    private content: HTMLElement;
     private activeLibraryId: string | null = null;
     private searchTerm = '';
     private sortField = 'name';
@@ -31,8 +33,8 @@ export class CustomLibraryPane {
     ) {
         this.container = parent.createDiv({ cls: 'lorebase-custom-library-pane' });
         this.controller = new CustomLibraryController(new CustomLibraryViewModel(manager));
-        this.renderSelector();
-        this.renderControls();
+        this.content = this.container.createDiv({ cls: 'lorebase-custom-library-content' });
+        this.renderChrome();
         void this.renderContent();
     }
 
@@ -42,19 +44,21 @@ export class CustomLibraryPane {
         this.container.remove();
     }
 
-    private renderSelector(): void {
+    private renderChrome(): void {
         this.selector?.destroy();
+        this.controls?.remove();
         this.selector = new CustomLibrarySelector(
             this.container,
             this.manager.listCustomLibraries(),
             this.activeLibraryId,
             { onSelect: (id) => void this.selectLibrary(id) },
         );
+        this.renderControls();
     }
 
     private renderControls(): void {
-        const controls = this.container.createDiv({ cls: 'lorebase-custom-library-controls' });
-        const search = controls.createEl('input', {
+        this.controls = this.container.createDiv({ cls: 'lorebase-custom-library-controls' });
+        const search = this.controls.createEl('input', {
             cls: 'lorebase-custom-library-search',
             attr: { type: 'search', placeholder: 'Search by title', 'aria-label': 'Search by title' },
         });
@@ -66,21 +70,21 @@ export class CustomLibraryPane {
 
         const definition = this.getActiveDefinition();
         const fields = definition?.schema.fields ?? [];
-        this.createSelect(controls, 'Sort', [
+        this.createSelect(this.controls, 'Sort', [
             { value: 'name', label: 'Name' },
             ...fields.map((field) => ({ value: field.id, label: field.label })),
         ], this.sortField, (value) => {
             this.sortField = value;
             void this.renderContent();
         });
-        this.createSelect(controls, 'Direction', [
+        this.createSelect(this.controls, 'Direction', [
             { value: 'asc', label: 'Ascending' },
             { value: 'desc', label: 'Descending' },
         ], this.sortOrder, (value) => {
             this.sortOrder = value as 'asc' | 'desc';
             void this.renderContent();
         });
-        this.createSelect(controls, 'Group', [
+        this.createSelect(this.controls, 'Group', [
             { value: 'none', label: 'No grouping' },
             ...fields.map((field) => ({ value: `field:${field.id}`, label: field.label })),
         ], this.group.mode === 'field' ? `field:${this.group.field ?? ''}` : 'none', (value) => {
@@ -114,36 +118,33 @@ export class CustomLibraryPane {
         this.sortOrder = 'asc';
         this.group = { mode: 'none', order: 'asc' };
         this.callbacks.onActiveLibraryChange(id);
-        this.container.empty();
-        this.selector = null;
-        this.renderSelector();
-        this.renderControls();
+        this.renderChrome();
         await this.renderContent();
     }
 
     private async renderContent(): Promise<void> {
         const generation = ++this.renderGeneration;
-        const content = this.container.createDiv({ cls: 'lorebase-custom-library-content' });
+        this.content.empty();
         const definition = this.getActiveDefinition();
         if (!definition) {
-            content.createDiv({ cls: 'lorebase-custom-library-empty', text: 'Select a custom library to begin.' });
+            this.content.createDiv({ cls: 'lorebase-custom-library-empty', text: 'Select a custom library to begin.' });
             return;
         }
 
-        content.createDiv({ cls: 'lorebase-custom-library-title', text: definition.name });
+        this.content.createDiv({ cls: 'lorebase-custom-library-title', text: definition.name });
         const fields = definition.schema.fields;
         const rules = this.createSearchRules();
         const sorts: SortSpec[] = [{ field: this.sortField as SortSpec['field'], order: this.sortOrder }];
         const groups = await this.controller.query({ rules, sorts, group: this.group });
         if (generation !== this.renderGeneration) return;
 
-        if (groups.length === 1 && groups[0].items.length === 0) {
-            content.createDiv({ cls: 'lorebase-custom-library-empty', text: 'No matching entries.' });
+        if (groups.length === 0 || groups.every((group) => group.items.length === 0)) {
+            this.content.createDiv({ cls: 'lorebase-custom-library-empty', text: 'No matching entries.' });
             return;
         }
 
         for (const group of groups) {
-            const section = content.createDiv({ cls: 'lorebase-custom-library-group' });
+            const section = this.content.createDiv({ cls: 'lorebase-custom-library-group' });
             if (group.label) section.createDiv({ cls: 'lorebase-custom-library-group-title', text: group.label });
             const grid = section.createDiv({ cls: 'lorebase-custom-library-grid' });
             for (const item of group.items) {

@@ -5,6 +5,7 @@ import { LibraryCatalog } from './LibraryCatalog';
 import { LibraryRegistry } from './LibraryRegistry';
 import { FolderLibrarySource } from './folderLibrarySource';
 import { buildLibrarySelectionOptions, type LibrarySelectionOption } from './LibrarySelection';
+import { installLibrarySurfaceBridge } from './LibrarySurfaceBridge';
 import type { LibraryDefinition, LibraryItem } from './types';
 
 export const CUSTOM_LIBRARIES_KEY = 'customLibraries';
@@ -23,6 +24,7 @@ export class LibraryManager {
         this.folderSource = new FolderLibrarySource(app);
         for (const definition of createBuiltinLibraryDefinitions()) this.registry.register(definition);
         this.catalog = new LibraryCatalog(this.registry, () => this.rootData[CUSTOM_LIBRARIES_KEY], (value) => this.persistCustomLibraries(value));
+        installLibrarySurfaceBridge(this);
     }
 
     async load(): Promise<void> {

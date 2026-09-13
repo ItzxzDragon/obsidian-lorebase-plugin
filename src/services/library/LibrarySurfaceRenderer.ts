@@ -22,7 +22,7 @@ export class LibrarySurfaceRenderer {
     ): void {
         const rules = options.rules ?? [];
         const sorts = options.sorts ?? [];
-        const group = options.group ?? { mode: 'none', order: 'asc' };
+        const group: GroupSpec = options.group ?? { mode: 'none', order: 'asc' };
         const fields = options.fields ?? definition.schema.fields;
         const groups = applyLibraryView(items, rules, sorts, group, fields);
 
@@ -37,8 +37,9 @@ export class LibrarySurfaceRenderer {
 
             const grid = section.createDiv({ cls: 'lorebase-library-surface-grid' });
             for (const item of result.items) {
-                new LibraryItemCard(grid, item, {
-                    onClick: options.onClick,
+                new LibraryItemCard(grid, item, definition, {
+                    onClick: options.onClick ?? (() => undefined),
+                    onContextMenu: options.onContextMenu,
                 });
             }
         }

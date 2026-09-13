@@ -6,6 +6,7 @@ import type { LibraryManager } from './LibraryManager';
 export class CustomLibraryIntegration {
     private readonly panes = new WeakMap<HTMLElement, CustomLibraryPane>();
     private observer: MutationObserver | null = null;
+    private scanQueued = false;
 
     constructor(
         private readonly app: App,
@@ -13,13 +14,23 @@ export class CustomLibraryIntegration {
     ) {}
 
     start(): void {
-        if (this.observer || typeof MutationObserver === 'undefined') return;
-        this.observer = new MutationObserver(() => this.scan());
+        if (this.observer || typeof document === 'undefined' || typeof MutationObserver === 'undefined' || !document.body) return;
+        this.observer = new MutationObserver(() => this.queueScan());
         this.observer.observe(document.body, { childList: true, subtree: true });
         this.scan();
     }
 
+    private queueScan(): void {
+        if (this.scanQueued) return;
+        this.scanQueued = true;
+        window.requestAnimationFrame(() => {
+            this.scanQueued = false;
+            this.scan();
+        });
+    }
+
     private scan(): void {
+        if (typeof document === 'undefined') return;
         document.querySelectorAll<HTMLElement>('.lorebase-view').forEach((view) => {
             if (this.panes.has(view)) return;
             const builtinContent = view.querySelector<HTMLElement>('.lorebase-content');

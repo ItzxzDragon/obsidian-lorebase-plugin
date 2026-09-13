@@ -11,7 +11,7 @@ import {
     type LibrarySelectionOption,
 } from './LibrarySelection';
 import { LibrarySurfaceRenderer, type LibrarySurfaceRenderOptions } from './LibrarySurfaceRenderer';
-import type { LibraryItem } from './types';
+import type { LibraryDefinition, LibraryItem } from './types';
 
 export interface LibrarySurfaceSnapshot {
     selection: ActiveLibrary;
@@ -53,6 +53,10 @@ export class LibrarySurfaceController {
 
     getCurrentOption(): LibrarySelectionOption | null {
         return resolveSelection(this.manager, this.active);
+    }
+
+    getCurrentDefinition(): LibraryDefinition | null {
+        return this.getCurrentOption()?.definition ?? null;
     }
 
     getSnapshot(): LibrarySurfaceSnapshot {
@@ -113,7 +117,7 @@ export class LibrarySurfaceController {
         }
 
         const selectionAtStart = this.getSelectionId();
-        const definition = this.getCurrentOption()?.definition;
+        const definition = this.getCurrentDefinition();
         if (!definition || definition.kind !== 'custom') {
             parent.empty();
             return;
@@ -125,10 +129,27 @@ export class LibrarySurfaceController {
         this.renderer.render(parent, items, definition, options);
     }
 
+    /** Render the current custom selection without duplicating selection checks in the caller. */
+    async renderCurrentCustomLibrary(
+        parent: HTMLElement,
+        options: LibrarySurfaceRenderOptions = {},
+    ): Promise<boolean> {
+        if (!this.isCustomSelected()) return false;
+        await this.renderCustomLibrary(parent, options);
+        return true;
+    }
+
     /** Resolve the schema fields used by the active custom library's shared pipeline. */
     getCurrentCustomFields(): FieldDefinition[] {
-        const definition = this.getCurrentOption()?.definition;
+        const definition = this.getCurrentDefinition();
         return definition?.kind === 'custom' ? definition.schema.fields : [];
+    }
+
+    /** Return properties visible to the active custom library's schema editor. */
+    getCurrentCustomProperties(): string[] {
+        const definition = this.getCurrentDefinition();
+        if (!definition || definition.kind !== 'custom') return [];
+        return this.manager.getAvailableProperties(definition.id);
     }
 
     /** @deprecated Use loadItems(). */

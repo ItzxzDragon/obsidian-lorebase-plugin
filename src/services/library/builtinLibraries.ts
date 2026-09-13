@@ -16,6 +16,7 @@ export function createBuiltinLibraryDefinitions(): LibraryDefinition[] {
         id,
         name,
         icon,
+        kind: 'builtin',
         mediaType: mediaType as MediaType,
         source: { kind: 'builtin', mediaType: mediaType as MediaType },
         schema: { fields: [] },

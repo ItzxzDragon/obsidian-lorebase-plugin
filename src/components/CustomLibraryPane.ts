@@ -37,6 +37,7 @@ export class CustomLibraryPane {
         this.controller = new CustomLibraryController(new CustomLibraryViewModel(manager));
         this.content = this.container.createDiv({ cls: 'lorebase-custom-library-content' });
         this.renderChrome();
+        this.syncContentVisibility();
         void this.renderContent();
     }
 
@@ -44,6 +45,15 @@ export class CustomLibraryPane {
         this.selector?.destroy();
         this.selector = null;
         this.container.remove();
+    }
+
+    setContentVisible(visible: boolean): void {
+        this.content.toggleClass('is-hidden', !visible);
+        this.content.setAttribute('aria-hidden', String(!visible));
+    }
+
+    private syncContentVisibility(): void {
+        this.setContentVisible(this.activeLibraryId !== null);
     }
 
     private renderChrome(): void {
@@ -146,6 +156,7 @@ export class CustomLibraryPane {
         this.group = { mode: 'none', order: 'asc' };
         this.callbacks.onActiveLibraryChange(id);
         this.renderChrome();
+        this.syncContentVisibility();
         await this.renderContent();
     }
 

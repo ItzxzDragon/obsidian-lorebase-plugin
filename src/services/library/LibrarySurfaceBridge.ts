@@ -1,4 +1,3 @@
-import type { LibraryViewState, LorebasePluginInterface } from '../../types';
 import { LibrarySelector } from '../../components/toolbar/LibrarySelector';
 import { LibrarySurfaceController } from './LibrarySurfaceController';
 import type { LibraryManager } from './LibraryManager';
@@ -43,8 +42,8 @@ function attachLibrarySurfaceBridge(view: BridgedView, manager: LibraryManager):
     if (view[ATTACHED]) return;
     view[ATTACHED] = true;
 
-    const plugin = (view as any).plugin as LorebasePluginInterface;
-    const controller = new LibrarySurfaceController(manager, plugin.getMediaType());
+    const plugin = (view as any).plugin as { getMediaType: () => string; switchMediaType?: (mediaType: string) => void | Promise<void> };
+    const controller = new LibrarySurfaceController(manager, plugin.getMediaType() as any);
     view.__librarySurfaceController = controller;
     view.__librarySurfaceRenderVersion = 0;
 
@@ -89,13 +88,14 @@ async function selectLibrary(
     controller: LibrarySurfaceController,
     id: string,
     custom: boolean,
-    plugin: LorebasePluginInterface,
+    plugin: { switchMediaType?: (mediaType: string) => void | Promise<void> },
 ): Promise<void> {
     const option = controller.getOptions().find((candidate) => candidate.id === id);
     if (!option) return;
 
+    controller.selectOption(option);
+
     if (custom) {
-        controller.selectOption(option);
         const version = (view.__librarySurfaceRenderVersion ?? 0) + 1;
         view.__librarySurfaceRenderVersion = version;
         const content = (view as any).libraryContentEl as HTMLElement | null;
@@ -105,12 +105,16 @@ async function selectLibrary(
         content.addClass('lorebase-custom-library-active');
         content.createDiv({ cls: 'lorebase-custom-library-loading', text: 'Loading library…' });
 
-        const state = readToolbarViewState(view);
+        const definition = controller.getCurrentDefinition();
+        if (!definition || definition.kind !== 'custom') return;
+
         await controller.renderCurrentCustomLibrary(content, {
-            rules: state?.rules ?? [],
-            sorts: state ? [state.sort] : [],
-            group: state?.group,
-            fields: controller.getCurrentCustomFields(),
+            rules: definition.filterGroup,
+            sorts: definition.sorts,
+            group: definition.groupProperty
+                ? { mode: 'field', field: definition.groupProperty, order: definition.groupDirection ?? 'asc' }
+                : { mode: 'none', order: 'asc' },
+            fields: definition.schema.fields,
             onClick: (item) => {
                 void openLibraryItem(view, item.file.path);
             },
@@ -120,19 +124,13 @@ async function selectLibrary(
         return;
     }
 
-    controller.selectOption(option);
+    view.__librarySurfaceRenderVersion = (view.__librarySurfaceRenderVersion ?? 0) + 1;
     const content = (view as any).libraryContentEl as HTMLElement | null;
     content?.removeClass('lorebase-custom-library-active');
-    await plugin.switchMediaType(controller.getSelection().kind === 'builtin'
-        ? controller.getSelection().mediaType
-        : plugin.getMediaType());
-}
-
-function readToolbarViewState(view: BridgedView): LibraryViewState | null {
-    const toolbar = (view as any).toolbar as Record<string, unknown> | null;
-    const state = toolbar?.currentViewState;
-    if (!state || typeof state !== 'object') return null;
-    return state as LibraryViewState;
+    const mediaType = option.definition.source.kind === 'builtin'
+        ? option.definition.source.mediaType
+        : undefined;
+    if (mediaType && plugin.switchMediaType) await plugin.switchMediaType(mediaType);
 }
 
 async function openLibraryItem(view: BridgedView, path: string): Promise<void> {

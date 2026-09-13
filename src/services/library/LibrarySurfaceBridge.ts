@@ -14,6 +14,11 @@ type BridgedView = LibraryView & {
     __librarySurfaceRenderVersion?: number;
 };
 
+type BridgePlugin = {
+    getMediaType: () => string;
+    switchMediaType?: (mediaType: string) => void | Promise<void>;
+};
+
 /** Installs the shared Library selector/surface bridge without creating a second view. */
 export function installLibrarySurfaceBridge(manager: LibraryManager): void {
     const prototype = LibraryView.prototype as BridgedView;
@@ -42,7 +47,7 @@ function attachLibrarySurfaceBridge(view: BridgedView, manager: LibraryManager):
     if (view[ATTACHED]) return;
     view[ATTACHED] = true;
 
-    const plugin = (view as any).plugin as { getMediaType: () => string; switchMediaType?: (mediaType: string) => void | Promise<void> };
+    const plugin = (view as any).plugin as BridgePlugin;
     const controller = new LibrarySurfaceController(manager, plugin.getMediaType() as any);
     view.__librarySurfaceController = controller;
     view.__librarySurfaceRenderVersion = 0;
@@ -55,9 +60,9 @@ function attachLibrarySurfaceBridge(view: BridgedView, manager: LibraryManager):
         if (!left) return;
 
         const mediaTrigger = left.querySelector<HTMLElement>('.lorebase-media-trigger');
-        if (mediaTrigger) mediaTrigger.style.display = 'none';
+        if (mediaTrigger) mediaTrigger.style.display = '';
         const mediaTray = toolbar.querySelector<HTMLElement>('.lorebase-media-tray');
-        if (mediaTray) mediaTray.style.display = 'none';
+        if (mediaTray) mediaTray.style.display = '';
 
         if (left.querySelector('.lorebase-library-selector-bridge')) return;
 
@@ -88,19 +93,19 @@ async function selectLibrary(
     controller: LibrarySurfaceController,
     id: string,
     custom: boolean,
-    plugin: { switchMediaType?: (mediaType: string) => void | Promise<void> },
+    plugin: BridgePlugin,
 ): Promise<void> {
     const option = controller.getOptions().find((candidate) => candidate.id === id);
     if (!option) return;
 
     controller.selectOption(option);
 
-    if (custom) {
-        const version = (view.__librarySurfaceRenderVersion ?? 0) + 1;
-        view.__librarySurfaceRenderVersion = version;
-        const content = (view as any).libraryContentEl as HTMLElement | null;
-        if (!content) return;
+    const version = (view.__librarySurfaceRenderVersion ?? 0) + 1;
+    view.__librarySurfaceRenderVersion = version;
+    const content = (view as any).libraryContentEl as HTMLElement | null;
 
+    if (custom) {
+        if (!content) return;
         content.empty();
         content.addClass('lorebase-custom-library-active');
         content.createDiv({ cls: 'lorebase-custom-library-loading', text: 'Loading library…' });
@@ -109,8 +114,8 @@ async function selectLibrary(
         if (!definition || definition.kind !== 'custom') return;
 
         await controller.renderCurrentCustomLibrary(content, {
-            rules: definition.filterGroup,
-            sorts: definition.sorts,
+            rules: definition.filterGroup ?? [],
+            sorts: definition.sorts ?? [],
             group: definition.groupProperty
                 ? { mode: 'field', field: definition.groupProperty, order: definition.groupDirection ?? 'asc' }
                 : { mode: 'none', order: 'asc' },
@@ -124,8 +129,6 @@ async function selectLibrary(
         return;
     }
 
-    view.__librarySurfaceRenderVersion = (view.__librarySurfaceRenderVersion ?? 0) + 1;
-    const content = (view as any).libraryContentEl as HTMLElement | null;
     content?.removeClass('lorebase-custom-library-active');
     const mediaType = option.definition.source.kind === 'builtin'
         ? option.definition.source.mediaType

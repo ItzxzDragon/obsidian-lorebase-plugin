@@ -28,6 +28,10 @@ export class LibrarySurfaceRenderer {
 
         parent.empty();
         parent.addClass('lorebase-library-surface');
+        parent.dataset.libraryId = definition.id;
+        parent.dataset.libraryKind = definition.kind === 'custom' ? 'custom' : 'builtin';
+        parent.dataset.libraryOrientation = definition.orientation;
+        parent.dataset.libraryCardSize = definition.cardSize;
 
         for (const result of groups) {
             const section = parent.createDiv({ cls: 'lorebase-library-surface-group' });
@@ -36,6 +40,30 @@ export class LibrarySurfaceRenderer {
             }
 
             const grid = section.createDiv({ cls: 'lorebase-library-surface-grid' });
+            grid.dataset.libraryOrientation = definition.orientation;
+            grid.dataset.libraryCardSize = definition.cardSize;
+            if (definition.orientation === 'horizontal') {
+                grid.addClass('is-horizontal');
+                if (definition.customHorizontalCardMinWidth) {
+                    grid.style.setProperty('--lorebase-library-card-min-width', `${definition.customHorizontalCardMinWidth}px`);
+                }
+                if (definition.customHorizontalCardHeight) {
+                    grid.style.setProperty('--lorebase-library-card-height', `${definition.customHorizontalCardHeight}px`);
+                }
+            } else {
+                grid.addClass('is-vertical');
+                grid.style.setProperty('--lorebase-library-columns', String(Math.max(1, definition.columns)));
+                if (definition.customCardMinWidth) {
+                    grid.style.setProperty('--lorebase-library-card-min-width', `${definition.customCardMinWidth}px`);
+                }
+                if (definition.customCardMinHeight) {
+                    grid.style.setProperty('--lorebase-library-card-min-height', `${definition.customCardMinHeight}px`);
+                }
+                if (definition.customCardImageRatio) {
+                    grid.style.setProperty('--lorebase-library-card-image-ratio', String(definition.customCardImageRatio));
+                }
+            }
+
             for (const item of result.items) {
                 new LibraryItemCard(grid, item, definition, {
                     onClick: options.onClick ?? (() => undefined),

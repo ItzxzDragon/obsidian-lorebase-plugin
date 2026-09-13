@@ -47,6 +47,11 @@ export class CustomLibraryPane {
         this.container.remove();
     }
 
+    refreshLibraries(): void {
+        this.renderChrome();
+        void this.renderContent();
+    }
+
     setContentVisible(visible: boolean): void {
         this.content.toggleClass('is-hidden', !visible);
         this.content.setAttribute('aria-hidden', String(!visible));

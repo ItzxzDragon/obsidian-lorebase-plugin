@@ -1,6 +1,7 @@
 import type { TFile } from 'obsidian';
 import type { FieldDefinition, LibraryFieldType, MediaType, SortOrder, SortSpec } from '../../types';
 import type { FilterGroup } from './unifiedViewState';
+import type { EntryFieldConfig } from './entry';
 
 /** A library item exposed to the shared library/filter/sort/group pipeline. */
 export interface LibraryItem {
@@ -35,6 +36,8 @@ export interface LibraryDefinition {
     schema: LibrarySchema;
     propertyScope?: LibraryPropertyScope;
     fileNameTemplate?: string;
+    /** Optional explicit fields used by the simple Custom Library entry form. */
+    entryFields?: EntryFieldConfig[];
     orientation?: LibraryOrientation;
     cardSize?: LibraryCardSize;
     columns?: number;

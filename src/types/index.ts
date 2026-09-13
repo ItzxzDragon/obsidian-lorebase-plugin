@@ -1,1 +1,84 @@
-    // existing content omitted
+/**
+ * LOREBASE - Type Definitions
+ * Core type definitions for all media types and plugin settings
+ */
+import type { App } from 'obsidian';
+import type { AnimeService } from '../services/AnimeService';
+import type { GameService } from '../services/GameService';
+import type { MetadataService } from '../services/MetadataService';
+import type { ReadingService } from '../services/ReadingService';
+import type { VideoService } from '../services/VideoService';
+
+export type MediaType = 'game' | 'anime' | 'movie' | 'series' | 'book' | 'manga';
+export type GameStatus = 'completed' | 'playing' | 'dropped' | 'sandbox' | 'wishlist' | 'not_started';
+export type AnimeFormat = 'tv' | 'movie' | 'ova' | 'ona' | 'special';
+export type AnimeStatus = 'planned' | 'watching' | 'completed' | 'dropped' | 'paused';
+export type VideoStatus = AnimeStatus;
+export type ReadingStatus = AnimeStatus;
+export type MediaStatus = GameStatus | AnimeStatus;
+export type SettingsLayoutMode = 'tabs' | 'accordion';
+export type CardClickAction = 'open' | 'edit';
+export type StatusLabelSettings = { games: Partial<Record<GameStatus, string>>; anime: Partial<Record<AnimeStatus, string>>; movies: Partial<Record<VideoStatus, string>>; series: Partial<Record<VideoStatus, string>>; books: Partial<Record<ReadingStatus, string>>; manga: Partial<Record<ReadingStatus, string>>; };
+export interface TagPreset { id: string; label: string; tag: string; icon?: string; }
+interface TagPresetSettings { games: TagPreset[]; }
+export type NoteImportWriteMode = 'copy' | 'replace';
+export type NoteImportTargetMedia = 'auto' | 'games' | 'anime' | 'movies' | 'series' | 'books' | 'manga';
+export interface NoteImportFieldMapping { key: string; aliases: string[]; }
+export interface NoteImportSettings { sourceFolderPath: string; targetMedia: NoteImportTargetMedia; writeMode: NoteImportWriteMode; fieldMappings: NoteImportFieldMapping[]; blacklist: string[]; }
+export interface AnimePart { id: string; kind: AnimeFormat; title: string; seasonNumber: number | null; episodeCurrent: number | null; episodeTotal: number | null; status: AnimeStatus; }
+export interface VideoPart { id: string; kind: 'movie' | 'season'; title: string; seasonNumber: number | null; episodeCurrent: number | null; episodeTotal: number | null; status: VideoStatus; }
+export interface MangaPart { id: string; kind: 'volume'; title: string; volumeNumber: number | null; chapterCurrent: number | null; chapterTotal: number | null; status: ReadingStatus; }
+export interface RelatedMediaLink { type: MediaType; path: string; title: string; imageUrl?: string | null; }
+export type UserRating = 1 | 2 | 3 | 4 | 5 | null;
+export interface CommunityRating { provider: string; rating: number | null; votes: number | null; }
+export type CardSize = 'small' | 'medium' | 'large';
+export type CardOrientation = 'vertical' | 'horizontal';
+export type CardStyle = 'hover' | 'progress';
+export type SortField = 'name' | 'series' | 'year' | 'rating' | 'dateStarted' | 'dateFinished' | 'dateCompleted' | `yaml:${string}`;
+export type SortOrder = 'asc' | 'desc';
+export type LibraryFieldType = 'text' | 'number' | 'date' | 'boolean' | 'list';
+export type FilterOperator = 'contains' | 'equals' | 'notEquals' | 'empty' | 'notEmpty' | 'greater' | 'less' | 'between' | 'isTrue' | 'isFalse' | 'containsAny' | 'containsAll' | 'notContains' | 'thisMonth' | 'thisYear';
+export interface FilterRule { id: string; field: string; fieldType: LibraryFieldType; operator: FilterOperator; value?: string | number | boolean | string[] | null; valueTo?: string | number | null; }
+export interface FieldDefinition { id: string; label: string; icon: string; type: LibraryFieldType; source: 'builtin' | 'yaml'; operators: FilterOperator[]; options?: Array<{ value: string; label: string }>; }
+export type GroupMode = 'none' | 'series' | 'finishedMonth' | 'finishedYear';
+export interface GroupSpec { mode: GroupMode; order: SortOrder; }
+export interface SortSpec { field: SortField; order: SortOrder; }
+export interface LibraryViewState { sort: SortSpec; group: GroupSpec; rules: FilterRule[]; tags: string[]; genres: string[]; }
+export interface SavedLibraryView { id: string; name: string; state: LibraryViewState; readonly?: boolean; }
+export type ViewMode = 'grid' | 'horizontal';
+export type Language = 'en' | 'ru' | 'uk';
+export type ParticleEffect = 'none' | 'sakura' | 'snow';
+type TemplateMode = 'simple' | 'advanced';
+export type SteamSyncDuplicateMode = 'skip' | 'update' | 'ask';
+export type BadgePosition = 'top-left' | 'top-right' | 'bottom-left' | 'bottom-right';
+export type RatingBadgeMode = 'star' | 'emoji';
+export type CompletionDateBadgeFormat = 'short' | 'full';
+interface CompletionDateBadgeFormatSettings { games: CompletionDateBadgeFormat; anime: CompletionDateBadgeFormat; movies: CompletionDateBadgeFormat; series: CompletionDateBadgeFormat; books: CompletionDateBadgeFormat; manga: CompletionDateBadgeFormat; }
+interface OverlayTextOffset { x: number; y: number; }
+interface OverlayTextLayout { title: OverlayTextOffset; year: OverlayTextOffset; format: OverlayTextOffset; description: OverlayTextOffset; }
+interface OverlayTextVisibility { title: boolean; year: boolean; format: boolean; description: boolean; }
+interface BadgeItemSettings { enabled: boolean; position: BadgePosition; x: number; y: number; }
+interface BadgeSettings { status: BadgeItemSettings & { iconOnly: boolean }; rating: BadgeItemSettings & { mode: RatingBadgeMode }; favorite: BadgeItemSettings & { subtlePulse: boolean }; }
+interface BaseMediaItem { filePath: string; displayName: string; nameLower: string; year: number | null; description: string; userRating: UserRating; favorite: boolean; poster: string | null; imageUrl: string; horizontalImageUrl?: string | null; hasCustomPoster: boolean; isAdult: boolean; communityRating?: number | null; communityVotes?: number | null; communityRatingProvider?: string | null; myNotes?: string; started?: string | null; finished?: string | null; rawFields?: Record<string, string | number | boolean | string[] | null>; }
+export interface GameItem extends BaseMediaItem { type: 'game'; status: GameStatus; gameSeries: string; dateCompleted: number | null; started?: string | null; finished?: string | null; releaseDate?: string | null; publisher?: string; developer?: string; tags: string[]; genres: string[]; platforms?: string[]; sourceUrl?: string | null; integrationProvider?: 'rawg' | 'steam' | 'igdb' | null; integrationId?: string | null; steamAppId?: string | null; dlc?: GameDlc[]; relatedMedia?: RelatedMediaLink[]; }
+export interface GameDlc { id: string; provider: 'steam' | 'igdb'; title: string; imageUrl?: string | null; url?: string | null; userRating?: UserRating; owned?: boolean; }
+export interface AnimeItem extends BaseMediaItem { type: 'anime'; format: AnimeFormat; status: AnimeStatus; summary: string; seasonCurrent: number | null; seasonTotal?: number | null; episodeCurrent: number | null; episodeTotal: number | null; genres: string[]; studios?: string[]; dateAdded: number; dateWatched: number | null; tags: string[]; sourceUrl?: string | null; integrationProvider?: 'anilist' | 'jikan' | 'shikimori' | null; integrationId?: string | null; parts?: AnimePart[]; activePartId?: string | null; relatedMedia?: RelatedMediaLink[]; }
+export interface MovieItem extends BaseMediaItem { type: 'movie'; status: VideoStatus; summary: string; releaseDate?: string | null; runtime?: string; director?: string; actors?: string; rating?: string; genres: string[]; tags: string[]; sourceUrl?: string | null; integrationProvider?: 'tmdb' | 'tvmaze' | 'omdb' | null; integrationId?: string | null; parts?: VideoPart[]; activePartId?: string | null; relatedMedia?: RelatedMediaLink[]; }
+export interface SeriesItem extends BaseMediaItem { type: 'series'; status: VideoStatus; summary: string; releaseDate?: string | null; runtime?: string; director?: string; actors?: string; seasons: number | null; episodeCurrent: number | null; episodeTotal: number | null; networks?: string[]; studios?: string[]; rating?: string; genres: string[]; tags: string[]; sourceUrl?: string | null; integrationProvider?: 'tmdb' | 'tvmaze' | 'omdb' | null; integrationId?: string | null; parts?: VideoPart[]; activePartId?: string | null; relatedMedia?: RelatedMediaLink[]; }
+export interface BookItem extends BaseMediaItem { type: 'book'; status: ReadingStatus; summary: string; authors: string[]; publisher?: string; releaseDate?: string | null; pageCurrent: number | null; pageTotal: number | null; chapterCurrent: number | null; chapterTotal: number | null; genres: string[]; tags: string[]; dateAdded: number; lastModified: number; sourceUrl?: string | null; integrationProvider?: 'hardcover' | 'googlebooks' | null; integrationId?: string | null; relatedMedia?: RelatedMediaLink[]; }
+export interface MangaItem extends BaseMediaItem { type: 'manga'; status: ReadingStatus; summary: string; authors: string[]; artists: string[]; chapterCurrent: number | null; chapterTotal: number | null; volumeCurrent: number | null; volumeTotal: number | null; genres: string[]; tags: string[]; dateAdded: number; lastModified: number; sourceUrl?: string | null; integrationProvider?: 'anilist' | 'jikan' | 'shikimori' | 'mangaupdates' | 'mangadex' | null; integrationId?: string | null; parts?: MangaPart[]; activePartId?: string | null; relatedMedia?: RelatedMediaLink[]; }
+export type ReadingItem = BookItem | MangaItem;
+export type MediaItem = GameItem | AnimeItem | MovieItem | SeriesItem | BookItem | MangaItem;
+interface LibrarySettings { folderPath: string; columns: number; cardSize: CardSize; cardStyle: CardStyle; customCardSize: boolean; customCardMinWidth: number; customCardMinHeight: number; customCardImageRatio: number; customHorizontalCardMinWidth: number; customHorizontalCardHeight: number; showAnimeSeasonProgress: boolean; showAnimeEpisodeProgress: boolean; bookCoverEffect: boolean; orientation: CardOrientation; sortField: SortField; sortOrder: SortOrder; viewState: LibraryViewState; savedViews: SavedLibraryView[]; activeSavedViewId: string | null; showAdultInAll: boolean; }
+export interface LorebaseSettings { language: Language; settingsLayoutMode: SettingsLayoutMode; accentColor: string; showAddModeChoice: boolean; cardClickAction: CardClickAction; completionDateBadgeFormat: CompletionDateBadgeFormat; completionDateBadgeFormats: CompletionDateBadgeFormatSettings; enabledMedia: { games: boolean; anime: boolean; movies: boolean; series: boolean; books: boolean; manga: boolean; }; particleEffect: ParticleEffect; particleIntensity: number; descriptionLines: number; horizontalDescriptionLines: number; overlayTextLayout: OverlayTextLayout; horizontalOverlayTextLayout: OverlayTextLayout; overlayTextVisibility: OverlayTextVisibility; horizontalOverlayTextVisibility: OverlayTextVisibility; animeDescriptionLines: number; animeHorizontalDescriptionLines: number; movieDescriptionLines: number; movieHorizontalDescriptionLines: number; seriesDescriptionLines: number; seriesHorizontalDescriptionLines: number; bookDescriptionLines: number; bookHorizontalDescriptionLines: number; mangaDescriptionLines: number; mangaHorizontalDescriptionLines: number; animeOverlayTextLayout: OverlayTextLayout; animeHorizontalOverlayTextLayout: OverlayTextLayout; movieOverlayTextLayout: OverlayTextLayout; movieHorizontalOverlayTextLayout: OverlayTextLayout; seriesOverlayTextLayout: OverlayTextLayout; seriesHorizontalOverlayTextLayout: OverlayTextLayout; bookOverlayTextLayout: OverlayTextLayout; bookHorizontalOverlayTextLayout: OverlayTextLayout; mangaOverlayTextLayout: OverlayTextLayout; mangaHorizontalOverlayTextLayout: OverlayTextLayout; animeOverlayTextVisibility: OverlayTextVisibility; animeHorizontalOverlayTextVisibility: OverlayTextVisibility; movieOverlayTextVisibility: OverlayTextVisibility; movieHorizontalOverlayTextVisibility: OverlayTextVisibility; seriesOverlayTextVisibility: OverlayTextVisibility; seriesHorizontalOverlayTextVisibility: OverlayTextVisibility; bookOverlayTextVisibility: OverlayTextVisibility; bookHorizontalOverlayTextVisibility: OverlayTextVisibility; mangaOverlayTextVisibility: OverlayTextVisibility; mangaHorizontalOverlayTextVisibility: OverlayTextVisibility; overlayApplyToAllMedia: boolean; badges: BadgeSettings; horizontalBadges: BadgeSettings; animeBadges: BadgeSettings; animeHorizontalBadges: BadgeSettings; movieBadges: BadgeSettings; movieHorizontalBadges: BadgeSettings; seriesBadges: BadgeSettings; seriesHorizontalBadges: BadgeSettings; bookBadges: BadgeSettings; bookHorizontalBadges: BadgeSettings; mangaBadges: BadgeSettings; mangaHorizontalBadges: BadgeSettings; statusLabels: StatusLabelSettings; tagPresets: TagPresetSettings; noteImport: NoteImportSettings; migrations?: { animeProgressCardStyle?: boolean; templateTypeField?: boolean; gameTemplateTypeField?: boolean; mangaTemplateAdultField?: boolean; gameDefaultVisibilityFilters?: boolean; jikanMangaProviderV1?: boolean; }; games: LibrarySettings; anime: LibrarySettings; movies: LibrarySettings; series: LibrarySettings; books: LibrarySettings; manga: LibrarySettings; integrations?: IntegrationsSettings; steamSync: SteamSyncSettings; }
+interface IntegrationProviderSettings { enabled: boolean; apiKey?: string; clientSecret?: string; }
+export interface IntegrationTemplateSettings { provider: 'rawg' | 'steam' | 'igdb' | 'anilist' | 'jikan' | 'shikimori' | 'tmdb' | 'tvmaze' | 'omdb' | 'hardcover' | 'googlebooks' | 'mangaupdates' | 'mangadex'; templateEnabled: boolean; templateMode?: TemplateMode; templateFields?: string[]; howLongToBeatEnabled?: boolean; template: string; }
+export interface IntegrationImageStorageSettings { enabled: boolean; folderPath: string; }
+interface IntegrationsSettings { enabled: boolean; requestCooldownSeconds: number; imageStorage: IntegrationImageStorageSettings; providers: { rawg: IntegrationProviderSettings; steam: IntegrationProviderSettings; steamgriddb: IntegrationProviderSettings; igdb: IntegrationProviderSettings; anilist: IntegrationProviderSettings; jikan: IntegrationProviderSettings; shikimori: IntegrationProviderSettings; tmdb: IntegrationProviderSettings; tvmaze: IntegrationProviderSettings; omdb: IntegrationProviderSettings; hardcover: IntegrationProviderSettings; googlebooks: IntegrationProviderSettings; mangaupdates: IntegrationProviderSettings; mangadex: IntegrationProviderSettings; }; media: { games: IntegrationTemplateSettings; anime: IntegrationTemplateSettings; movies: IntegrationTemplateSettings; series: IntegrationTemplateSettings; books: IntegrationTemplateSettings; manga: IntegrationTemplateSettings; }; }
+export interface SteamSyncSettings { steamId: string; apiKey: string; importOwnedGames: boolean; importWishlist: boolean; duplicateMode: SteamSyncDuplicateMode; statusWithPlaytime: GameStatus; statusWithoutPlaytime: GameStatus; statusWishlist: GameStatus; fields: { playtime: boolean; genres: boolean; releaseDate: boolean; }; autoSyncPlaytimeOnStartup: boolean; }
+export interface LorebasePluginInterface { settings: LorebaseSettings; app: App; saveSettings(): Promise<void>; showEditModal(item: MediaItem, onSave: () => void, onBeforeSave?: () => void): void; showStatsModal(stats: GameStats | AnimeStats, mediaType: MediaType): void; showDeleteModal(game: MediaItem, onConfirm: () => Promise<void>): void; addMediaItem(mediaType: MediaType): void; runSteamSync(): Promise<void>; runNoteImport(): Promise<void>; enrichMediaItem(item: MediaItem, relink?: boolean, onSave?: () => void): Promise<boolean>; refreshViews(): void; getGameService(): GameService | null; getAnimeService(): AnimeService | null; getMetadataService(): MetadataService | null; getMovieService(): VideoService | null; getSeriesService(): VideoService | null; getBookService(): ReadingService | null; getMangaService(): ReadingService | null; getMediaType(): MediaType; getEnabledMediaTypes(): MediaType[]; switchMediaType(mediaType: MediaType): Promise<void>; }
+export interface FilterState { statuses: MediaStatus[]; favoriteOnly: boolean; adultOnly: boolean; customOnly: boolean; searchTerm: string; tags: string[]; genres: string[]; rules?: FilterRule[]; }
+export interface GameStats { total: number; completed: number; playing: number; dropped: number; sandbox: number; wishlist: number; notStarted: number; favorite: number; withRating: number; avgRating: number; customPosters: number; adult: number; seriesCount: number; ratingDistribution: Record<number, number>; statusPercentages: Record<string, number>; }
+export interface AnimeStats { total: number; planned: number; watching: number; completed: number; dropped: number; paused: number; favorite: number; withRating: number; avgRating: number; ratingDistribution: Record<number, number>; statusPercentages: Record<string, number>; }
+export type VideoStats = AnimeStats;
+export type ReadingStats = AnimeStats;

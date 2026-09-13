@@ -1,4 +1,4 @@
-import type { FieldDefinition, MediaType, SortOrder, SortSpec } from '../../types';
+import type { FieldDefinition, FilterRule, MediaType, SortOrder, SortSpec } from '../../types';
 import type { LibraryManager } from './LibraryManager';
 import {
     buildLibrarySelectionOptions,
@@ -13,10 +13,15 @@ import {
 import { LibrarySurfaceRenderer, type LibrarySurfaceRenderOptions } from './LibrarySurfaceRenderer';
 import type { LibraryDefinition, LibraryItem } from './types';
 import {
+    cloneFilterGroup,
     cloneUnifiedViewState,
+    countFilterRules,
     createEmptyFilterGroup,
+    createViewId,
     type FilterGroup,
+    type FilterNode,
     type UnifiedLibraryViewState,
+    type UnifiedSavedView,
 } from './unifiedViewState';
 
 export interface LibrarySurfaceSnapshot {
@@ -129,13 +134,26 @@ export class LibrarySurfaceController {
         };
     }
 
-    /** Update the nested filter tree and keep the legacy flat rules synchronized. */
+    /** Update the nested filter tree and derive the legacy flat filter list for consumers that still need it. */
     setFilterGroup(filterGroup: FilterGroup): void {
+        const clonedGroup = cloneFilterGroup(filterGroup);
+        const filters = flattenFilterRules(clonedGroup);
         this.viewState = {
             ...this.viewState,
+            filterMode: clonedGroup.mode,
+            filters,
+            filterGroup: clonedGroup,
+        };
+    }
+
+    /** Update the root filter mode while preserving its nested children. */
+    setFilterMode(filterMode: UnifiedLibraryViewState['filterMode']): void {
+        this.viewState = {
+            ...this.viewState,
+            filterMode,
             filterGroup: {
-                ...filterGroup,
-                children: filterGroup.children.map((child) => ({ ...child })),
+                ...cloneFilterGroup(this.viewState.filterGroup),
+                mode: filterMode,
             },
         };
     }
@@ -147,6 +165,81 @@ export class LibrarySurfaceController {
             groupProperty: groupProperty.trim(),
             groupDirection,
         };
+    }
+
+    /** Return the number of effective filter rules, including rules inside nested groups. */
+    getFilterRuleCount(): number {
+        return countFilterRules(this.viewState.filterGroup);
+    }
+
+    /** Create or replace a Saved View using the complete unified state. */
+    saveView(name: string, id = createViewId('saved-view')): UnifiedSavedView {
+        const normalizedName = name.trim();
+        if (!normalizedName) throw new Error('Saved view name cannot be empty');
+
+        const state = cloneUnifiedViewState(this.viewState);
+        const savedState = {
+            sorts: state.sorts,
+            filterMode: state.filterMode,
+            filters: state.filters,
+            filterGroup: state.filterGroup,
+            groupProperty: state.groupProperty,
+            groupDirection: state.groupDirection,
+            activeSavedViewId: id,
+        };
+        const savedView: UnifiedSavedView = { id, name: normalizedName, state: savedState };
+        const existing = this.viewState.savedViews.findIndex((view) => view.id === id);
+        const savedViews = [...this.viewState.savedViews];
+        if (existing >= 0) savedViews[existing] = savedView;
+        else savedViews.push(savedView);
+        this.viewState = {
+            ...state,
+            savedViews,
+            activeSavedViewId: id,
+        };
+        return cloneSavedView(savedView);
+    }
+
+    /** Apply a Saved View and restore its complete filter/sort/group state. */
+    applySavedView(id: string | null): boolean {
+        if (!id) {
+            this.viewState = { ...cloneUnifiedViewState(this.viewState), activeSavedViewId: '' };
+            return true;
+        }
+        const saved = this.viewState.savedViews.find((view) => view.id === id);
+        if (!saved) return false;
+        const restored = cloneUnifiedViewState({
+            ...saved.state,
+            savedViews: this.viewState.savedViews,
+            activeSavedViewId: id,
+        });
+        this.viewState = restored;
+        return true;
+    }
+
+    /** Update the name of an existing Saved View. */
+    renameSavedView(id: string, name: string): boolean {
+        const normalizedName = name.trim();
+        if (!normalizedName) throw new Error('Saved view name cannot be empty');
+        const index = this.viewState.savedViews.findIndex((view) => view.id === id);
+        if (index < 0) return false;
+        const savedViews = this.viewState.savedViews.map((view, viewIndex) =>
+            viewIndex === index ? { ...view, name: normalizedName } : cloneSavedView(view),
+        );
+        this.viewState = { ...this.viewState, savedViews };
+        return true;
+    }
+
+    /** Remove a Saved View and clear the active id if necessary. */
+    deleteSavedView(id: string): boolean {
+        const next = this.viewState.savedViews.filter((view) => view.id !== id);
+        if (next.length === this.viewState.savedViews.length) return false;
+        this.viewState = {
+            ...this.viewState,
+            savedViews: next,
+            activeSavedViewId: this.viewState.activeSavedViewId === id ? '' : this.viewState.activeSavedViewId,
+        };
+        return true;
     }
 
     /** Load items for the current selection; built-ins remain owned by their media services. */
@@ -230,14 +323,37 @@ function createDefaultViewState(): UnifiedLibraryViewState {
 
 function viewStateFromDefinition(definition: LibraryDefinition): UnifiedLibraryViewState {
     const filterGroup = definition.filterGroup ?? createEmptyFilterGroup('and', 'root');
+    const clonedGroup = cloneFilterGroup(filterGroup);
     return {
         sorts: definition.sorts?.map((sort) => ({ ...sort })) ?? [],
-        filterMode: filterGroup.mode,
-        filters: [],
-        filterGroup,
+        filterMode: clonedGroup.mode,
+        filters: flattenFilterRules(clonedGroup),
+        filterGroup: clonedGroup,
         groupProperty: definition.groupProperty ?? '',
         groupDirection: definition.groupDirection ?? 'asc',
         savedViews: [],
         activeSavedViewId: '',
+    };
+}
+
+function flattenFilterRules(group: FilterGroup): FilterRule[] {
+    const rules: FilterRule[] = [];
+    for (const child of group.children) {
+        if (child.kind === 'group') rules.push(...flattenFilterRules(child));
+        else rules.push({
+            ...child,
+            value: Array.isArray(child.value) ? [...child.value] : child.value,
+        });
+    }
+    return rules;
+}
+
+function cloneSavedView(view: UnifiedSavedView): UnifiedSavedView {
+    return {
+        ...view,
+        state: cloneUnifiedViewState({
+            ...view.state,
+            savedViews: [],
+        }),
     };
 }

@@ -1,5 +1,6 @@
 import { LibraryRegistry } from './LibraryRegistry';
-import type { FieldDefinition, FilterOperator } from '../../types';
+import type { FieldDefinition, FilterOperator, FilterRule, GroupSpec, SortSpec } from '../../types';
+import type { FilterGroup, FilterNode } from './unifiedViewState';
 import type { LibraryDefinition } from './types';
 
 export interface PersistedLibraryDefinition extends LibraryDefinition {
@@ -8,8 +9,8 @@ export interface PersistedLibraryDefinition extends LibraryDefinition {
 
 /**
  * Owns the set of user-defined libraries while keeping built-ins in the same
- * registry. Persistence is injected so this domain layer stays independent of
- * Obsidian's Plugin class and can be tested in isolation.
+ * registry. Persistence is injected so this domain layer stays independent
+ * of Obsidian's Plugin class and can be tested in isolation.
  */
 export class LibraryCatalog {
     constructor(
@@ -71,13 +72,18 @@ function normalizeCustomLibrary(value: unknown): PersistedLibraryDefinition | nu
     const name = typeof value.name === 'string' ? value.name.trim() : '';
     const icon = typeof value.icon === 'string' && value.icon.trim() ? value.icon.trim() : 'library';
     const source = isRecord(value.source);
-    const folder = source && source.kind === 'folder' && typeof source.folder === 'string' ? value.source.folder.trim() : '';
+    const folder = source && source.kind === 'folder' && typeof value.source.folder === 'string' ? value.source.folder.trim() : '';
     if (!id || !name || !folder) return null;
 
     const schema = isRecord(value.schema) ? value.schema : {};
     const fields = Array.isArray(schema.fields)
         ? schema.fields.map(normalizeField).filter((field): field is FieldDefinition => field !== null)
         : [];
+
+    const sorts = normalizeSorts(value.sorts);
+    const filterGroup = normalizeFilterGroup(value.filterGroup);
+    const groupProperty = typeof value.groupProperty === 'string' ? value.groupProperty.trim() : '';
+    const groupDirection = value.groupDirection === 'desc' ? 'desc' : 'asc';
 
     return {
         kind: 'custom', id, name, icon,
@@ -100,6 +106,10 @@ function normalizeCustomLibrary(value: unknown): PersistedLibraryDefinition | nu
         customHorizontalCardMinWidth: normalizePositiveInt(value.customHorizontalCardMinWidth),
         customHorizontalCardHeight: normalizePositiveInt(value.customHorizontalCardHeight),
         mediaType: normalizeMediaType(value.mediaType),
+        sorts,
+        filterGroup,
+        groupProperty: groupProperty || undefined,
+        groupDirection,
     };
 }
 
@@ -123,6 +133,60 @@ function normalizeField(value: unknown): FieldDefinition | null {
                 .map((option) => ({ value: option.value as string, label: option.label as string }))
             : undefined,
     };
+}
+
+function normalizeSorts(value: unknown): SortSpec[] | undefined {
+    if (!Array.isArray(value)) return undefined;
+    const result: SortSpec[] = [];
+    for (const entry of value) {
+        if (!isRecord(entry) || typeof entry.field !== 'string') continue;
+        const field = entry.field.trim();
+        if (!field) continue;
+        result.push({ field: field as SortSpec['field'], order: entry.order === 'desc' ? 'desc' : 'asc' });
+    }
+    return result;
+}
+
+function normalizeFilterGroup(value: unknown): FilterGroup | undefined {
+    if (!isRecord(value) || value.kind !== 'group' || typeof value.id !== 'string') return undefined;
+    const mode = value.mode === 'or' || value.mode === 'none' ? value.mode : 'and';
+    const children = Array.isArray(value.children)
+        ? value.children.map(normalizeFilterNode).filter((node): node is FilterNode => node !== null)
+        : [];
+    return { kind: 'group', id: value.id.trim() || 'root', mode, children };
+}
+
+function normalizeFilterNode(value: unknown): FilterNode | null {
+    if (!isRecord(value)) return null;
+    if (value.kind === 'group') return normalizeFilterGroup(value) ?? null;
+    return normalizeFilterRule(value);
+}
+
+function normalizeFilterRule(value: Record<string, unknown>): FilterRule | null {
+    const id = typeof value.id === 'string' ? value.id.trim() : '';
+    const field = typeof value.field === 'string' ? value.field.trim() : '';
+    const fieldType = value.fieldType;
+    const operator = value.operator;
+    if (!id || !field || !['text', 'number', 'date', 'boolean', 'list'].includes(String(fieldType))) return null;
+    if (!isFilterOperator(operator)) return null;
+    return {
+        id,
+        field,
+        fieldType: fieldType as FilterRule['fieldType'],
+        operator,
+        value: normalizeFilterValue(value.value),
+        valueTo: typeof value.valueTo === 'string' || typeof value.valueTo === 'number' ? value.valueTo : null,
+    };
+}
+
+function normalizeFilterValue(value: unknown): FilterRule['value'] {
+    if (Array.isArray(value)) return value.filter((entry): entry is string => typeof entry === 'string');
+    if (typeof value === 'string' || typeof value === 'number' || typeof value === 'boolean' || value === null) return value;
+    return null;
+}
+
+function isFilterOperator(value: unknown): value is FilterOperator {
+    return ['contains', 'equals', 'notEquals', 'empty', 'notEmpty', 'greater', 'less', 'between', 'isTrue', 'isFalse', 'containsAny', 'containsAll', 'notContains', 'thisMonth', 'thisYear'].includes(String(value));
 }
 
 function normalizePositiveInt(value: unknown): number | undefined {

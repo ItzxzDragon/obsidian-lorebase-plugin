@@ -2,6 +2,8 @@ import type { App, CachedMetadata, TFile } from 'obsidian';
 import type { FieldDefinition } from '../../types';
 import type { LibraryDefinition, LibraryItem } from './types';
 
+const SPECIAL_PROPERTIES = ['$file.name', '$file.path', '$file.ctime', '$file.mtime', '$file.size'];
+
 /** Loads Markdown entries from a custom library folder into the shared library model. */
 export class FolderLibrarySource {
     constructor(private readonly app: App) {}
@@ -16,14 +18,14 @@ export class FolderLibrarySource {
         return files.map((file) => this.toLibraryItem(file, definition.schema.fields, definition.schema.titleField, definition.schema.coverField));
     }
 
-    /** Returns YAML properties available to the library's schema editor. */
+    /** Returns properties available to the library's schema editor. */
     getAvailableProperties(definition: LibraryDefinition): string[] {
         if (definition.source.kind !== 'folder') return [];
 
         const folder = normalizeFolder(definition.source.folder);
         const files = this.app.vault.getMarkdownFiles()
             .filter((file) => definition.propertyScope === 'vault' || isInsideFolder(file.path, folder));
-        const properties = new Set<string>();
+        const properties = new Set<string>(SPECIAL_PROPERTIES);
 
         for (const file of files) {
             const frontmatter = getLibraryFrontmatter(this.app.metadataCache.getFileCache(file));
@@ -51,17 +53,18 @@ export class FolderLibrarySource {
         };
 
         for (const field of fields) {
-            const key = field.id.startsWith('yaml:') ? field.id.slice(5) : field.id;
-            const value = readProperty(frontmatter, key);
+            const value = propertyValue(frontmatter, file, field.id);
             values[field.id] = value;
-            if (field.source === 'yaml') values[key] = value;
+            if (field.source === 'yaml' && !field.id.startsWith('$file.')) {
+                values[field.id.replace(/^yaml:/, '')] = value;
+            }
         }
 
         if (titleField) {
-            values.name = values[titleField] ?? readProperty(frontmatter, titleField.replace(/^yaml:/, '')) ?? values.name;
+            values.name = propertyValue(frontmatter, file, titleField) ?? values.name;
         }
         if (coverField) {
-            values.cover = values[coverField] ?? readProperty(frontmatter, coverField.replace(/^yaml:/, '')) ?? null;
+            values.cover = propertyValue(frontmatter, file, coverField) ?? null;
         }
 
         return { file, values };
@@ -75,6 +78,18 @@ function normalizeFolder(folder: string): string {
 function isInsideFolder(path: string, folder: string): boolean {
     if (!folder) return true;
     return path === folder || path.startsWith(`${folder}/`);
+}
+
+function propertyValue(frontmatter: Record<string, unknown>, file: TFile, property: string): unknown {
+    const id = property.replace(/^yaml:/, '');
+    switch (id) {
+        case '$file.name': return file.basename;
+        case '$file.path': return file.path;
+        case '$file.ctime': return file.stat.ctime;
+        case '$file.mtime': return file.stat.mtime;
+        case '$file.size': return file.stat.size;
+        default: return readProperty(frontmatter, id);
+    }
 }
 
 function readProperty(frontmatter: Record<string, unknown>, key: string): unknown {

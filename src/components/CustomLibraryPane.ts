@@ -20,6 +20,8 @@ export class CustomLibraryPane {
     private content: HTMLElement;
     private activeLibraryId: string | null = null;
     private searchTerm = '';
+    private filterField = 'name';
+    private filterValue = '';
     private sortField = 'name';
     private sortOrder: 'asc' | 'desc' = 'asc';
     private group: GroupSpec = { mode: 'none', order: 'asc' };
@@ -70,6 +72,29 @@ export class CustomLibraryPane {
 
         const definition = this.getActiveDefinition();
         const fields = definition?.schema.fields ?? [];
+        const filterableFields = [
+            { value: 'name', label: 'Title' },
+            ...fields
+                .filter((field) => field.type === 'text' || field.type === 'list')
+                .map((field) => ({ value: field.id, label: field.label })),
+        ];
+        if (!filterableFields.some((field) => field.value === this.filterField)) {
+            this.filterField = 'name';
+        }
+        this.createSelect(this.controls, 'Filter field', filterableFields, this.filterField, (value) => {
+            this.filterField = value;
+            void this.renderContent();
+        });
+        const filterInput = this.controls.createEl('input', {
+            cls: 'lorebase-custom-library-filter-value',
+            attr: { type: 'search', placeholder: 'Filter value', 'aria-label': 'Filter value' },
+        });
+        filterInput.value = this.filterValue;
+        filterInput.addEventListener('input', () => {
+            this.filterValue = filterInput.value;
+            void this.renderContent();
+        });
+
         this.createSelect(this.controls, 'Sort', [
             { value: 'name', label: 'Name' },
             ...fields.map((field) => ({ value: field.id, label: field.label })),
@@ -114,6 +139,8 @@ export class CustomLibraryPane {
         this.activeLibraryId = id;
         this.controller.setActiveLibrary(id);
         this.searchTerm = '';
+        this.filterField = 'name';
+        this.filterValue = '';
         this.sortField = 'name';
         this.sortOrder = 'asc';
         this.group = { mode: 'none', order: 'asc' };
@@ -154,15 +181,30 @@ export class CustomLibraryPane {
     }
 
     private createSearchRules(): FilterRule[] {
-        const value = this.searchTerm.trim();
-        if (!value) return [];
-        return [{
-            id: 'custom-library-search',
-            field: 'name',
-            fieldType: 'text',
-            operator: 'contains',
-            value,
-        }];
+        const rules: FilterRule[] = [];
+        const search = this.searchTerm.trim();
+        if (search) {
+            rules.push({
+                id: 'custom-library-search',
+                field: 'name',
+                fieldType: 'text',
+                operator: 'contains',
+                value: search,
+            });
+        }
+
+        const filter = this.filterValue.trim();
+        if (filter) {
+            const field = this.getActiveDefinition()?.schema.fields.find((candidate) => candidate.id === this.filterField);
+            rules.push({
+                id: 'custom-library-filter',
+                field: this.filterField,
+                fieldType: field?.type ?? 'text',
+                operator: 'contains',
+                value: filter,
+            });
+        }
+        return rules;
     }
 
     private getActiveDefinition(): LibraryDefinition | undefined {

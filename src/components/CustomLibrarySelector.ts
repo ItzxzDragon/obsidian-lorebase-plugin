@@ -1,4 +1,3 @@
-import { setIcon } from 'obsidian';
 import type { LibraryDefinition } from '../services/library/types';
 
 export interface CustomLibrarySelectorCallbacks {
@@ -27,11 +26,10 @@ export class CustomLibrarySelector {
         placeholder.disabled = libraries.length === 0;
 
         for (const library of libraries) {
-            const option = select.createEl('option', {
+            select.createEl('option', {
                 text: library.name,
                 value: library.id,
             });
-            setIcon(option, library.icon || 'library');
         }
 
         select.value = activeLibraryId ?? '';

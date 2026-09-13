@@ -19,10 +19,11 @@ describe('CustomLibrarySelector', () => {
         expect(select).not.toBeNull();
         expect(select?.value).toBe('notes');
         expect(select?.options).toHaveLength(2);
+        expect(select?.options[0]?.textContent).toBe('Built-in libraries');
         expect(select?.options[1]?.textContent).toBe('Notes');
     });
 
-    it('emits the selected library id', () => {
+    it('emits the selected library id and can clear it', () => {
         const parent = document.createElement('div');
         const onSelect = vi.fn();
         new CustomLibrarySelector(parent, [library], null, { onSelect });
@@ -30,8 +31,11 @@ describe('CustomLibrarySelector', () => {
         const select = parent.querySelector('select') as HTMLSelectElement;
         select.value = 'notes';
         select.dispatchEvent(new Event('change'));
+        select.value = '';
+        select.dispatchEvent(new Event('change'));
 
-        expect(onSelect).toHaveBeenCalledWith('notes');
+        expect(onSelect).toHaveBeenNthCalledWith(1, 'notes');
+        expect(onSelect).toHaveBeenNthCalledWith(2, null);
     });
 
     it('can be destroyed cleanly', () => {

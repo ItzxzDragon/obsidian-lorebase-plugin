@@ -27,6 +27,7 @@ import { IntegrationService } from './services/IntegrationService';
 import { SteamSyncService } from './services/SteamSyncService';
 import { MetadataService } from './services/MetadataService';
 import { NoteConversionService } from './services/NoteConversionService';
+import { LibraryManager } from './services/library/LibraryManager';
 import {
     mergeOverlayLayout,
     mergeOverlayVisibility,
@@ -64,6 +65,7 @@ export default class LorebasePlugin extends Plugin {
     private steamSyncRunning = false;
     private metadataService: MetadataService | null = null;
     private noteConversionService: NoteConversionService | null = null;
+    private libraryManager: LibraryManager | null = null;
     private readonly localizedCommands: Array<{ command: Command; key: TranslationKey }> = [];
 
     async onload(): Promise<void> {
@@ -89,6 +91,12 @@ export default class LorebasePlugin extends Plugin {
         });
         this.steamSyncService = new SteamSyncService(this.app, this.metadataService);
         this.noteConversionService = new NoteConversionService(this.app);
+        this.libraryManager = new LibraryManager(
+            this.app,
+            () => this.loadData(),
+            (data) => this.saveData(data),
+        );
+        await this.libraryManager.load();
         addIcon(LOREBASE_ICON_ID, LOREBASE_ICON_SVG);
 
         // Register the library view
@@ -187,6 +195,7 @@ export default class LorebasePlugin extends Plugin {
         this.seriesService = null;
         this.bookService = null;
         this.mangaService = null;
+        this.libraryManager = null;
 
         if (this.particleService) {
             this.particleService.destroy();
@@ -408,7 +417,7 @@ export default class LorebasePlugin extends Plugin {
                     visibilityKey: 'seriesHorizontalOverlayTextVisibility',
                     visibilityFallbackKey: 'horizontalOverlayTextVisibility',
                     badgesKey: 'seriesHorizontalBadges',
-                    badgesFallbackKey: 'horizontalBadges',
+                    badgesFallbackKey: 'badges',
                 },
             },
             book: {
@@ -430,7 +439,7 @@ export default class LorebasePlugin extends Plugin {
                     visibilityKey: 'bookHorizontalOverlayTextVisibility',
                     visibilityFallbackKey: 'horizontalOverlayTextVisibility',
                     badgesKey: 'bookHorizontalBadges',
-                    badgesFallbackKey: 'horizontalBadges',
+                    badgesFallbackKey: 'badges',
                 },
             },
             manga: {
@@ -450,9 +459,9 @@ export default class LorebasePlugin extends Plugin {
                     layoutKey: 'mangaHorizontalOverlayTextLayout',
                     layoutFallbackKey: 'horizontalOverlayTextLayout',
                     visibilityKey: 'mangaHorizontalOverlayTextVisibility',
-                    visibilityFallbackKey: 'horizontalOverlayTextVisibility',
+                    visibilityFallbackKey: 'mangaHorizontalOverlayTextVisibility',
                     badgesKey: 'mangaHorizontalBadges',
-                    badgesFallbackKey: 'horizontalBadges',
+                    badgesFallbackKey: 'badges',
                 },
             },
         };
@@ -1379,6 +1388,10 @@ export default class LorebasePlugin extends Plugin {
 
     getSteamSyncService(): SteamSyncService | null {
         return this.steamSyncService;
+    }
+
+    getLibraryManager(): LibraryManager | null {
+        return this.libraryManager;
     }
 
     getMediaType(): MediaType {

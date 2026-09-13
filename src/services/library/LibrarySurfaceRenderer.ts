@@ -12,7 +12,7 @@ export interface LibrarySurfaceRenderOptions {
     onContextMenu?: (item: LibraryItem, event: MouseEvent) => void;
 }
 
-/** Renders folder-backed library items through the shared View/Filter/Sort/Group pipeline. */
+/** Renders folder-backed library items through the shared Library pipeline. */
 export class LibrarySurfaceRenderer {
     render(
         parent: HTMLElement,
@@ -20,9 +20,11 @@ export class LibrarySurfaceRenderer {
         definition: LibraryDefinition,
         options: LibrarySurfaceRenderOptions = {},
     ): void {
-        const rules = options.rules ?? [];
-        const sorts = options.sorts ?? [];
-        const group: GroupSpec = options.group ?? { mode: 'none', order: 'asc' };
+        const rules = options.rules ?? definition.filterGroup ?? [];
+        const sorts = options.sorts ?? definition.sorts ?? [];
+        const group: GroupSpec = options.group ?? (definition.groupProperty
+            ? { mode: 'field', field: definition.groupProperty, order: definition.groupDirection ?? 'asc' }
+            : { mode: 'none', order: 'asc' });
         const fields = options.fields ?? definition.schema.fields;
         const orientation = definition.orientation ?? 'vertical';
         const cardSize = definition.cardSize ?? 'medium';

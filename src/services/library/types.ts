@@ -1,5 +1,5 @@
 import type { TFile } from 'obsidian';
-import type { FieldDefinition, LibraryFieldType, MediaType } from '../../types';
+import type { FieldDefinition, FilterRule, LibraryFieldType, MediaType, SortOrder, SortSpec } from '../../types';
 
 /** A library item exposed to the shared library/filter/sort/group pipeline. */
 export interface LibraryItem {
@@ -54,6 +54,11 @@ export interface LibraryDefinition {
     customHorizontalCardHeight?: number;
     /** Optional link to one of Lorebase's existing media adapters. */
     mediaType?: MediaType;
+    /** Shared View/Filter/Sort/Group defaults for this library. */
+    sorts?: SortSpec[];
+    filterGroup?: FilterRule[];
+    groupProperty?: string;
+    groupDirection?: SortOrder;
 }
 
 /** Field definition helper for schema authors. */

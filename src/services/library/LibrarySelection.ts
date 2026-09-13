@@ -1,16 +1,36 @@
-import type { LibraryDefinition } from './types';
+import type { MediaType } from '../../types';
+import type { LibraryManager } from './LibraryManager';
+import type { LibraryDefinition, LibraryItem } from './types';
 
-/**
- * UI-neutral selection model for the shared Library surface.
- * Built-in and custom libraries are deliberately represented by the same entry
- * so the toolbar/view layer does not need a second custom-library workflow.
- */
+/** UI-neutral identity for the single active Library surface. */
+export type ActiveLibrary =
+    | { kind: 'builtin'; mediaType: MediaType }
+    | { kind: 'custom'; libraryId: string };
+
 export interface LibrarySelectionOption {
     id: string;
     name: string;
     icon: string;
     kind: 'builtin' | 'custom';
     definition: LibraryDefinition;
+}
+
+export interface LibrarySelectionSnapshot {
+    active: ActiveLibrary;
+    option: LibrarySelectionOption | null;
+    items: LibraryItem[];
+}
+
+export function builtinSelection(mediaType: MediaType): ActiveLibrary {
+    return { kind: 'builtin', mediaType };
+}
+
+export function customSelection(libraryId: string): ActiveLibrary {
+    return { kind: 'custom', libraryId };
+}
+
+export function selectionId(selection: ActiveLibrary): string {
+    return selection.kind === 'builtin' ? selection.mediaType : selection.libraryId;
 }
 
 export function toLibrarySelectionOption(definition: LibraryDefinition): LibrarySelectionOption {
@@ -34,4 +54,30 @@ export function findLibrarySelection(
     if (!id) return null;
     const definition = definitions.find((candidate) => candidate.id === id);
     return definition ? toLibrarySelectionOption(definition) : null;
+}
+
+export function resolveSelection(
+    manager: LibraryManager,
+    selection: ActiveLibrary,
+): LibrarySelectionOption | null {
+    if (selection.kind === 'builtin') {
+        const definition = manager.listLibraries().find(
+            (candidate) => candidate.kind === 'builtin'
+                && candidate.source.kind === 'builtin'
+                && candidate.source.mediaType === selection.mediaType,
+        );
+        return definition ? toLibrarySelectionOption(definition) : null;
+    }
+
+    const definition = manager.getLibrary(selection.libraryId);
+    return definition ? toLibrarySelectionOption(definition) : null;
+}
+
+/** Custom libraries are folder-backed; built-ins continue through their media services. */
+export async function loadSelectionItems(
+    manager: LibraryManager,
+    selection: ActiveLibrary,
+): Promise<LibraryItem[]> {
+    if (selection.kind !== 'custom') return [];
+    return manager.loadItems(selection.libraryId);
 }

@@ -1,4 +1,4 @@
-import type { FilterRule, GroupSpec, LibraryFieldType, SortSpec } from '../../types';
+import type { FieldDefinition, FilterRule, GroupSpec, LibraryFieldType, SortSpec } from '../../types';
 import type { LibraryItem } from './types';
 
 export interface LibraryGroup<T> {
@@ -16,11 +16,25 @@ export function filterLibraryItems(items: LibraryItem[], rules: FilterRule[]): L
     return items.filter((item) => rules.every((rule) => matchesFilterRule(getLibraryValue(item, rule.field), rule)));
 }
 
-export function sortLibraryItems(items: LibraryItem[], sorts: SortSpec[]): LibraryItem[] {
+/**
+ * Sorts library items using optional schema metadata. The metadata is important
+ * for custom libraries because YAML fields do not carry their type in the
+ * persisted SortSpec itself.
+ */
+export function sortLibraryItems(
+    items: LibraryItem[],
+    sorts: SortSpec[],
+    fields: FieldDefinition[] = [],
+): LibraryItem[] {
     if (sorts.length === 0) return [...items];
+    const fieldTypes = new Map(fields.map((field) => [field.id, field.type]));
     return items.map((item, index) => ({ item, index })).sort((a, b) => {
         for (const spec of sorts) {
-            const result = compareValues(getLibraryValue(a.item, spec.field), getLibraryValue(b.item, spec.field), fieldTypeForSort(spec.field));
+            const result = compareValues(
+                getLibraryValue(a.item, spec.field),
+                getLibraryValue(b.item, spec.field),
+                fieldTypeForSort(spec.field, fieldTypes),
+            );
             if (result !== 0) return spec.order === 'desc' ? -result : result;
         }
         return a.index - b.index;
@@ -41,8 +55,14 @@ export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): Libra
     return result;
 }
 
-export function applyLibraryView(items: LibraryItem[], rules: FilterRule[], sorts: SortSpec[], group: GroupSpec): LibraryGroup<LibraryItem>[] {
-    return groupLibraryItems(sortLibraryItems(filterLibraryItems(items, rules), sorts), group);
+export function applyLibraryView(
+    items: LibraryItem[],
+    rules: FilterRule[],
+    sorts: SortSpec[],
+    group: GroupSpec,
+    fields: FieldDefinition[] = [],
+): LibraryGroup<LibraryItem>[] {
+    return groupLibraryItems(sortLibraryItems(filterLibraryItems(items, rules), sorts, fields), group);
 }
 
 export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean {
@@ -101,7 +121,9 @@ function compareValues(a: unknown, b: unknown, type?: LibraryFieldType): number 
     return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
 }
 
-function fieldTypeForSort(field: string): LibraryFieldType | undefined {
+function fieldTypeForSort(field: string, fieldTypes: Map<string, LibraryFieldType>): LibraryFieldType | undefined {
+    if (fieldTypes.has(field)) return fieldTypes.get(field);
+    if (field.startsWith('yaml:')) return fieldTypes.get(field.slice(5));
     if (field === 'year' || field === 'rating') return 'number';
     if (field.startsWith('date')) return 'date';
     return undefined;

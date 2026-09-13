@@ -7,6 +7,10 @@ import { CustomLibraryViewModel } from '../services/library/CustomLibraryViewMod
 import type { LibraryManager } from '../services/library/LibraryManager';
 import type { LibraryDefinition, LibraryItem } from '../services/library/types';
 
+export interface CustomLibraryPaneCallbacks {
+    onActiveLibraryChange: (libraryId: string | null) => void;
+}
+
 /** First UI surface for custom libraries; it reuses the shared filter/sort/group pipeline. */
 export class CustomLibraryPane {
     private readonly container: HTMLElement;
@@ -23,6 +27,7 @@ export class CustomLibraryPane {
         private readonly app: App,
         private readonly manager: LibraryManager,
         parent: HTMLElement,
+        private readonly callbacks: CustomLibraryPaneCallbacks,
     ) {
         this.container = parent.createDiv({ cls: 'lorebase-custom-library-pane' });
         this.controller = new CustomLibraryController(new CustomLibraryViewModel(manager));
@@ -101,13 +106,14 @@ export class CustomLibraryPane {
         select.addEventListener('change', () => onChange(select.value));
     }
 
-    private async selectLibrary(id: string): Promise<void> {
+    private async selectLibrary(id: string | null): Promise<void> {
         this.activeLibraryId = id;
         this.controller.setActiveLibrary(id);
         this.searchTerm = '';
         this.sortField = 'name';
         this.sortOrder = 'asc';
         this.group = { mode: 'none', order: 'asc' };
+        this.callbacks.onActiveLibraryChange(id);
         this.container.empty();
         this.selector = null;
         this.renderSelector();

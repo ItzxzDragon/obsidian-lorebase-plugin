@@ -1,4 +1,4 @@
-import type { MediaType } from '../../types';
+import type { FieldDefinition, GroupSpec, MediaType } from '../../types';
 import type { LibraryManager } from './LibraryManager';
 import {
     buildLibrarySelectionOptions,
@@ -10,6 +10,7 @@ import {
     type ActiveLibrary,
     type LibrarySelectionOption,
 } from './LibrarySelection';
+import { LibrarySurfaceRenderer, type LibrarySurfaceRenderOptions } from './LibrarySurfaceRenderer';
 import type { LibraryItem } from './types';
 
 export interface LibrarySurfaceSnapshot {
@@ -19,15 +20,22 @@ export interface LibrarySurfaceSnapshot {
     isCustom: boolean;
 }
 
-/** Coordinates selection and loading for the single Library surface. */
+export interface LibrarySurfaceControllerOptions {
+    renderer?: LibrarySurfaceRenderer;
+}
+
+/** Coordinates selection, loading, and rendering for the single Library surface. */
 export class LibrarySurfaceController {
     private active: ActiveLibrary;
+    private readonly renderer: LibrarySurfaceRenderer;
 
     constructor(
         private readonly manager: LibraryManager,
         initialMediaType: MediaType,
+        options: LibrarySurfaceControllerOptions = {},
     ) {
         this.active = builtinSelection(initialMediaType);
+        this.renderer = options.renderer ?? new LibrarySurfaceRenderer();
     }
 
     /** All Built-in and Custom libraries available to the same selector. */
@@ -92,6 +100,38 @@ export class LibrarySurfaceController {
     /** Load items for the current selection; built-ins remain owned by their media services. */
     async loadItems(): Promise<LibraryItem[]> {
         return loadSelectionItems(this.manager, this.active);
+    }
+
+    /** Render the active custom library through the shared View/Filter/Sort/Group pipeline. */
+    async renderCustomLibrary(
+        parent: HTMLElement,
+        options: LibrarySurfaceRenderOptions = {},
+    ): Promise<void> {
+        if (!this.isCustomSelected()) {
+            parent.empty();
+            return;
+        }
+
+        const definition = this.getCurrentOption()?.definition;
+        if (!definition || definition.kind !== 'custom') {
+            parent.empty();
+            return;
+        }
+
+        const items = await this.loadItems();
+        this.renderer.render(parent, items, definition, options);
+    }
+
+    /** Resolve the fields used by the active custom library's shared pipeline. */
+    getCurrentCustomFields(): FieldDefinition[] {
+        const definition = this.getCurrentOption()?.definition;
+        return definition?.kind === 'custom' ? definition.schema.fields : [];
+    }
+
+    /** Resolve the group configuration used by the active custom library. */
+    getCurrentCustomGroup(): GroupSpec | null {
+        const definition = this.getCurrentOption()?.definition;
+        return definition?.kind === 'custom' && definition.group ? definition.group : null;
     }
 
     /** @deprecated Use loadItems(). */

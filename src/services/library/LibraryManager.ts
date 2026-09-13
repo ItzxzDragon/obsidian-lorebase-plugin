@@ -57,16 +57,30 @@ export class LibraryManager {
         titleField?: string;
         coverField?: string;
     }): Promise<LibraryDefinition> {
+        const id = input.id.trim();
+        const name = input.name.trim();
+        const folder = normalizeFolder(input.folder);
+        if (!id || !name || !folder) throw new Error('Library id, name, and folder are required');
+        if (this.registry.has(id)) throw new Error(`Library already exists: ${id}`);
+
+        const fields = (input.fields ?? []).map(toFieldDefinition);
+        const fieldIds = new Set<string>();
+        for (const field of fields) {
+            if (fieldIds.has(field.id)) throw new Error(`Duplicate library field: ${field.id}`);
+            fieldIds.add(field.id);
+        }
+
+        const titleField = normalizeOptionalFieldId(input.titleField);
+        const coverField = normalizeOptionalFieldId(input.coverField);
+        if (titleField && !fieldIds.has(titleField)) throw new Error(`Unknown title field: ${titleField}`);
+        if (coverField && !fieldIds.has(coverField)) throw new Error(`Unknown cover field: ${coverField}`);
+
         const created = this.catalog.create({
-            id: input.id,
-            name: input.name,
+            id,
+            name,
             icon: input.icon?.trim() || 'library',
-            source: { kind: 'folder', folder: input.folder.trim() },
-            schema: {
-                fields: (input.fields ?? []).map(toFieldDefinition),
-                titleField: input.titleField,
-                coverField: input.coverField,
-            },
+            source: { kind: 'folder', folder },
+            schema: { fields, titleField, coverField },
         });
         await this.save();
         return created;
@@ -110,6 +124,16 @@ function toFieldDefinition(field: LibraryFieldInput): FieldDefinition {
         source: 'yaml',
         operators: field.operators ?? defaultOperators(field.type),
     };
+}
+
+function normalizeOptionalFieldId(field: string | undefined): string | undefined {
+    if (!field?.trim()) return undefined;
+    const id = field.trim();
+    return id.startsWith('yaml:') ? id : `yaml:${id}`;
+}
+
+function normalizeFolder(folder: string): string {
+    return folder.trim().replace(/^\/+|\/+$/g, '');
 }
 
 function defaultOperators(type: LibraryFieldType): FilterOperator[] {

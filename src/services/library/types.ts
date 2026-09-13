@@ -1,7 +1,7 @@
 import type { TFile } from 'obsidian';
 import type { FieldDefinition, LibraryFieldType, MediaType } from '../../types';
 
-/** A library item exposed to the shared view/filter/sort/group pipeline. */
+/** A library item exposed to the shared library/filter/sort/group pipeline. */
 export interface LibraryItem {
     file: TFile;
     values: Record<string, unknown>;
@@ -21,6 +21,7 @@ export type LibrarySource =
 export type LibraryPropertyScope = 'folder' | 'vault';
 export type LibraryOrientation = 'vertical' | 'horizontal';
 export type LibraryCardSize = 'small' | 'medium' | 'large';
+export type LibraryKind = 'builtin' | 'custom';
 
 /** Minimal schema required by the generic library layer. */
 export interface LibrarySchema {
@@ -34,6 +35,8 @@ export interface LibraryDefinition {
     id: string;
     name: string;
     icon: string;
+    /** Explicit origin lets callers treat built-ins and custom libraries uniformly. */
+    kind?: LibraryKind;
     source: LibrarySource;
     schema: LibrarySchema;
     /** Scope used when resolving available note properties for the library. */

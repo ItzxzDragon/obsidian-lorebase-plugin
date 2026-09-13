@@ -18,6 +18,10 @@ export type LibrarySource =
         folder: string;
     };
 
+export type LibraryPropertyScope = 'folder' | 'vault';
+export type LibraryOrientation = 'vertical' | 'horizontal';
+export type LibraryCardSize = 'small' | 'medium' | 'large';
+
 /** Minimal schema required by the generic library layer. */
 export interface LibrarySchema {
     fields: FieldDefinition[];
@@ -32,6 +36,19 @@ export interface LibraryDefinition {
     icon: string;
     source: LibrarySource;
     schema: LibrarySchema;
+    /** Scope used when resolving available note properties for the library. */
+    propertyScope?: LibraryPropertyScope;
+    /** Optional filename template used by entry creation. `%property` variables are supported. */
+    fileNameTemplate?: string;
+    /** Presentation defaults consumed by the shared LibraryView. */
+    orientation?: LibraryOrientation;
+    cardSize?: LibraryCardSize;
+    columns?: number;
+    customCardMinWidth?: number;
+    customCardMinHeight?: number;
+    customCardImageRatio?: number;
+    customHorizontalCardMinWidth?: number;
+    customHorizontalCardHeight?: number;
     /** Optional link to one of Lorebase's existing media adapters. */
     mediaType?: MediaType;
 }

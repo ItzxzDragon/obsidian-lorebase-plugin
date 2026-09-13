@@ -34,6 +34,14 @@ export class LibraryManager {
         await this.persistCustomLibraries(this.registry.list().filter(isCustom));
     }
 
+    listLibraries(): LibraryDefinition[] {
+        return this.registry.list();
+    }
+
+    listCustomLibraries(): LibraryDefinition[] {
+        return this.registry.list().filter(isCustom);
+    }
+
     async loadItems(id: string): Promise<LibraryItem[]> {
         const definition = this.registry.get(id);
         if (!definition || definition.source.kind !== 'folder') return [];

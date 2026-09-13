@@ -73,7 +73,7 @@ export function resolveSelection(
     return definition ? toLibrarySelectionOption(definition) : null;
 }
 
-/** Custom libraries are folder-backed; built-ins continue through their media services. */
+/** Load the data owned by the active Library surface. Built-ins stay with their media services. */
 export async function loadSelectionItems(
     manager: LibraryManager,
     selection: ActiveLibrary,

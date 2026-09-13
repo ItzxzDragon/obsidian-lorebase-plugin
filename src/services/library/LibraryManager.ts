@@ -60,6 +60,17 @@ export class LibraryManager {
         fields?: LibraryFieldInput[];
         titleField?: string;
         coverField?: string;
+        propertyScope?: LibraryDefinition['propertyScope'];
+        fileNameTemplate?: string;
+        orientation?: LibraryDefinition['orientation'];
+        cardSize?: LibraryDefinition['cardSize'];
+        columns?: number;
+        customCardMinWidth?: number;
+        customCardMinHeight?: number;
+        customCardImageRatio?: number;
+        customHorizontalCardMinWidth?: number;
+        customHorizontalCardHeight?: number;
+        mediaType?: LibraryDefinition['mediaType'];
     }): Promise<LibraryDefinition> {
         const id = input.id.trim();
         const name = input.name.trim();
@@ -69,11 +80,23 @@ export class LibraryManager {
 
         const schema = normalizeSchema(input.fields ?? [], input.titleField, input.coverField);
         const created = this.catalog.create({
+            kind: 'custom',
             id,
             name,
             icon: input.icon?.trim() || 'library',
             source: { kind: 'folder', folder },
             schema,
+            propertyScope: input.propertyScope ?? 'folder',
+            fileNameTemplate: input.fileNameTemplate?.trim() || undefined,
+            orientation: input.orientation ?? 'vertical',
+            cardSize: input.cardSize ?? 'medium',
+            columns: normalizePositiveInt(input.columns),
+            customCardMinWidth: normalizePositiveInt(input.customCardMinWidth),
+            customCardMinHeight: normalizePositiveInt(input.customCardMinHeight),
+            customCardImageRatio: normalizePositiveNumber(input.customCardImageRatio),
+            customHorizontalCardMinWidth: normalizePositiveInt(input.customHorizontalCardMinWidth),
+            customHorizontalCardHeight: normalizePositiveInt(input.customHorizontalCardHeight),
+            mediaType: input.mediaType,
         });
         await this.save();
         return created;
@@ -86,9 +109,20 @@ export class LibraryManager {
         fields?: LibraryFieldInput[];
         titleField?: string;
         coverField?: string;
+        propertyScope?: LibraryDefinition['propertyScope'];
+        fileNameTemplate?: string;
+        orientation?: LibraryDefinition['orientation'];
+        cardSize?: LibraryDefinition['cardSize'];
+        columns?: number;
+        customCardMinWidth?: number;
+        customCardMinHeight?: number;
+        customCardImageRatio?: number;
+        customHorizontalCardMinWidth?: number;
+        customHorizontalCardHeight?: number;
+        mediaType?: LibraryDefinition['mediaType'];
     }): Promise<LibraryDefinition> {
         const existing = this.registry.get(id);
-        if (!existing || !isCustom(existing) || existing.source.kind !== 'folder') {
+        if (!existing || existing.kind !== 'custom' || existing.source.kind !== 'folder') {
             throw new Error(`Custom library not found: ${id}`);
         }
         const name = input.name === undefined ? existing.name : input.name.trim();
@@ -102,12 +136,24 @@ export class LibraryManager {
 
         const updated: LibraryDefinition = {
             ...existing,
+            kind: 'custom',
             name,
             icon: input.icon === undefined ? existing.icon : input.icon.trim() || 'library',
             source: { kind: 'folder', folder },
             schema,
+            propertyScope: input.propertyScope ?? existing.propertyScope ?? 'folder',
+            fileNameTemplate: input.fileNameTemplate === undefined ? existing.fileNameTemplate : input.fileNameTemplate.trim() || undefined,
+            orientation: input.orientation ?? existing.orientation ?? 'vertical',
+            cardSize: input.cardSize ?? existing.cardSize ?? 'medium',
+            columns: input.columns === undefined ? existing.columns : normalizePositiveInt(input.columns),
+            customCardMinWidth: input.customCardMinWidth === undefined ? existing.customCardMinWidth : normalizePositiveInt(input.customCardMinWidth),
+            customCardMinHeight: input.customCardMinHeight === undefined ? existing.customCardMinHeight : normalizePositiveInt(input.customCardMinHeight),
+            customCardImageRatio: input.customCardImageRatio === undefined ? existing.customCardImageRatio : normalizePositiveNumber(input.customCardImageRatio),
+            customHorizontalCardMinWidth: input.customHorizontalCardMinWidth === undefined ? existing.customHorizontalCardMinWidth : normalizePositiveInt(input.customHorizontalCardMinWidth),
+            customHorizontalCardHeight: input.customHorizontalCardHeight === undefined ? existing.customHorizontalCardHeight : normalizePositiveInt(input.customHorizontalCardHeight),
+            mediaType: input.mediaType === undefined ? existing.mediaType : input.mediaType,
         };
-        this.registry.upsert({ ...updated, kind: 'custom' } as LibraryDefinition);
+        this.registry.upsert(updated);
         await this.save();
         return updated;
     }
@@ -178,6 +224,14 @@ function normalizeFolder(folder: string): string {
     return folder.trim().replace(/^\/+|\/+$/g, '');
 }
 
+function normalizePositiveInt(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isInteger(value) && value > 0 ? value : undefined;
+}
+
+function normalizePositiveNumber(value: unknown): number | undefined {
+    return typeof value === 'number' && Number.isFinite(value) && value > 0 ? value : undefined;
+}
+
 function defaultOperators(type: LibraryFieldType): FilterOperator[] {
     switch (type) {
         case 'number':
@@ -189,7 +243,7 @@ function defaultOperators(type: LibraryFieldType): FilterOperator[] {
 }
 
 function isCustom(definition: LibraryDefinition): boolean {
-    return (definition as LibraryDefinition & { kind?: string }).kind === 'custom';
+    return definition.kind === 'custom';
 }
 
 function isRecord(value: unknown): value is Record<string, unknown> {

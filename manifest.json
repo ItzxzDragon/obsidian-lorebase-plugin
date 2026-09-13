@@ -1,9 +1,14 @@
 {
-  "id": "lorevault",
-  "name": "LoreVault",
-  "version": "0.1.0",
-  "minAppVersion": "1.7.0",
-  "description": "A personal media library for Obsidian with customizable libraries, views, filters, sorting, grouping, and rich cards.",
-  "author": "ItzxzDragon",
-  "isDesktopOnly": false
+    "id": "lorebase",
+    "name": "Lorebase",
+    "version": "3.0.1",
+    "minAppVersion": "1.7.0",
+    "description": "A media hub for games, anime, movies, series, books, and manga with rich cards, progress, ratings, and metadata.",
+    "author": "Murch1k",
+    "authorUrl": "https://discord.gg/eTcw8v8c4",
+    "fundingUrl": {
+        "Ko-fi": "https://ko-fi.com/murch1k",
+        "Patreon": "https://www.patreon.com/c/Murch1k"
+    },
+    "isDesktopOnly": false
 }

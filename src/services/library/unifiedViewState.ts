@@ -1,9 +1,7 @@
 import type { FilterRule, GroupSpec, SortSpec, SortOrder } from '../../types';
 
-/** Logical mode used by a filter group, matching the Custom Libraries reference runtime. */
 export type FilterMode = 'and' | 'or' | 'none';
 
-/** A nested filter group. Groups may contain rules and other groups. */
 export interface FilterGroup {
     kind: 'group';
     id: string;
@@ -13,7 +11,6 @@ export interface FilterGroup {
 
 export type FilterNode = FilterRule | FilterGroup;
 
-/** The complete view state Custom Libraries need to share with the main Library UI. */
 export interface UnifiedLibraryViewState {
     sorts: SortSpec[];
     filterMode: FilterMode;
@@ -47,38 +44,99 @@ export function cloneFilterGroup(group: FilterGroup): FilterGroup {
         mode: group.mode,
         children: group.children.map((child) => isFilterGroup(child)
             ? cloneFilterGroup(child)
-            : {
-                ...child,
-                value: Array.isArray(child.value) ? [...child.value] : child.value,
-            }),
+            : { ...child, value: Array.isArray(child.value) ? [...child.value] : child.value }),
     };
 }
 
 export function cloneUnifiedViewState(state: UnifiedLibraryViewState): UnifiedLibraryViewState {
     return {
+        ...state,
         sorts: state.sorts.map((sort) => ({ ...sort })),
-        filterMode: state.filterMode,
-        filters: state.filters.map((rule) => ({
-            ...rule,
-            value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
-        })),
+        filters: state.filters.map((rule) => ({ ...rule, value: Array.isArray(rule.value) ? [...rule.value] : rule.value })),
         filterGroup: cloneFilterGroup(state.filterGroup),
+        savedViews: state.savedViews.map((view) => ({ ...view, state: cloneSavedViewState(view.state) })),
+    };
+}
+
+function cloneSavedViewState(state: UnifiedSavedView['state']): UnifiedSavedView['state'] {
+    return {
+        ...state,
+        sorts: state.sorts.map((sort) => ({ ...sort })),
+        filters: state.filters.map((rule) => ({ ...rule, value: Array.isArray(rule.value) ? [...rule.value] : rule.value })),
+        filterGroup: cloneFilterGroup(state.filterGroup),
+    };
+}
+
+export function addSavedView(state: UnifiedLibraryViewState, name: string, id = createViewId('view')): UnifiedLibraryViewState {
+    const trimmedName = name.trim();
+    if (!trimmedName) throw new Error('Saved view name cannot be empty');
+    if (state.savedViews.some((view) => view.id === id)) throw new Error(`Saved view already exists: ${id}`);
+    const next = cloneUnifiedViewState(state);
+    next.savedViews.push({
+        id,
+        name: trimmedName,
+        state: cloneSavedViewState({
+            sorts: state.sorts,
+            filterMode: state.filterMode,
+            filters: state.filters,
+            filterGroup: state.filterGroup,
+            groupProperty: state.groupProperty,
+            groupDirection: state.groupDirection,
+            activeSavedViewId: state.activeSavedViewId,
+        }),
+    });
+    return next;
+}
+
+export function applySavedView(state: UnifiedLibraryViewState, id: string): UnifiedLibraryViewState {
+    const view = state.savedViews.find((candidate) => candidate.id === id);
+    if (!view) throw new Error(`Saved view not found: ${id}`);
+    return {
+        ...cloneSavedViewState(view.state),
+        savedViews: state.savedViews.map((candidate) => ({ ...candidate, state: cloneSavedViewState(candidate.state) })),
+        activeSavedViewId: id,
+    };
+}
+
+export function updateSavedView(state: UnifiedLibraryViewState, id: string): UnifiedLibraryViewState {
+    const view = state.savedViews.find((candidate) => candidate.id === id);
+    if (!view) throw new Error(`Saved view not found: ${id}`);
+    if (view.readonly) throw new Error(`Saved view is read-only: ${id}`);
+    const next = cloneUnifiedViewState(state);
+    const snapshot = cloneSavedViewState({
+        sorts: state.sorts,
+        filterMode: state.filterMode,
+        filters: state.filters,
+        filterGroup: state.filterGroup,
         groupProperty: state.groupProperty,
         groupDirection: state.groupDirection,
-        savedViews: state.savedViews.map((view) => ({
-            ...view,
-            state: {
-                ...view.state,
-                sorts: view.state.sorts.map((sort) => ({ ...sort })),
-                filters: view.state.filters.map((rule) => ({
-                    ...rule,
-                    value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
-                })),
-                filterGroup: cloneFilterGroup(view.state.filterGroup),
-            },
-        })),
-        activeSavedViewId: state.activeSavedViewId,
+        activeSavedViewId: id,
+    });
+    next.savedViews = next.savedViews.map((candidate) => candidate.id === id ? { ...candidate, state: snapshot } : candidate);
+    next.activeSavedViewId = id;
+    return next;
+}
+
+export function renameSavedView(state: UnifiedLibraryViewState, id: string, name: string): UnifiedLibraryViewState {
+    const trimmedName = name.trim();
+    if (!trimmedName) throw new Error('Saved view name cannot be empty');
+    const view = state.savedViews.find((candidate) => candidate.id === id);
+    if (!view) throw new Error(`Saved view not found: ${id}`);
+    if (view.readonly) throw new Error(`Saved view is read-only: ${id}`);
+    return {
+        ...cloneUnifiedViewState(state),
+        savedViews: state.savedViews.map((candidate) => candidate.id === id ? { ...candidate, name: trimmedName } : candidate),
     };
+}
+
+export function deleteSavedView(state: UnifiedLibraryViewState, id: string): UnifiedLibraryViewState {
+    const view = state.savedViews.find((candidate) => candidate.id === id);
+    if (!view) throw new Error(`Saved view not found: ${id}`);
+    if (view.readonly) throw new Error(`Saved view is read-only: ${id}`);
+    const next = cloneUnifiedViewState(state);
+    next.savedViews = next.savedViews.filter((candidate) => candidate.id !== id);
+    if (next.activeSavedViewId === id) next.activeSavedViewId = '';
+    return next;
 }
 
 export function countFilterRules(group: FilterGroup): number {
@@ -97,28 +155,15 @@ export function createViewId(prefix: string): string {
     return `${prefix}-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`;
 }
 
-/** Convert the legacy flat custom-library state without throwing away any existing rules. */
-export function fromLegacyViewState(state: {
-    rules: FilterRule[];
-    sorts: SortSpec[];
-    group: GroupSpec;
-}): UnifiedLibraryViewState {
+export function fromLegacyViewState(state: { rules: FilterRule[]; sorts: SortSpec[]; group: GroupSpec }): UnifiedLibraryViewState {
     const group = createEmptyFilterGroup('and', 'root');
-    group.children = state.rules.map((rule) => ({
-        ...rule,
-        value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
-    }));
-
-    const firstGroupField = state.group.mode === 'field' ? state.group.field ?? '' : '';
+    group.children = state.rules.map((rule) => ({ ...rule, value: Array.isArray(rule.value) ? [...rule.value] : rule.value }));
     return {
         sorts: state.sorts.map((sort) => ({ ...sort })),
         filterMode: 'and',
-        filters: state.rules.map((rule) => ({
-            ...rule,
-            value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
-        })),
+        filters: state.rules.map((rule) => ({ ...rule, value: Array.isArray(rule.value) ? [...rule.value] : rule.value })),
         filterGroup: group,
-        groupProperty: firstGroupField,
+        groupProperty: state.group.mode === 'field' ? state.group.field ?? '' : '',
         groupDirection: state.group.order,
         savedViews: [],
         activeSavedViewId: '',

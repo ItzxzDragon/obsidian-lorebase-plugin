@@ -1,5 +1,6 @@
-import { App } from 'obsidian';
+import { App, TFile } from 'obsidian';
 import type { FieldDefinition, FilterOperator, LibraryFieldType } from '../../types';
+import { buildEntryMarkdown, effectiveEntryKind, normalizeEntryFields, parseEntryValue, inferPropertyKinds, renderFileNameTemplate, type LibraryEntryValues } from './entry';
 import { createBuiltinLibraryDefinitions } from './builtinLibraries';
 import { LibraryCatalog } from './LibraryCatalog';
 import { LibraryRegistry } from './LibraryRegistry';
@@ -14,6 +15,7 @@ export class LibraryManager {
     readonly registry = new LibraryRegistry();
     readonly catalog: LibraryCatalog;
     private readonly folderSource: FolderLibrarySource;
+    private readonly app: App;
     private rootData: Record<string, unknown> = {};
 
     constructor(
@@ -21,6 +23,7 @@ export class LibraryManager {
         private readonly loadData: () => unknown | Promise<unknown>,
         private readonly saveData: (data: unknown) => void | Promise<void>,
     ) {
+        this.app = app;
         this.folderSource = new FolderLibrarySource(app);
         for (const definition of createBuiltinLibraryDefinitions()) this.registry.register(definition);
         this.catalog = new LibraryCatalog(this.registry, () => this.rootData[CUSTOM_LIBRARIES_KEY], (value) => this.persistCustomLibraries(value));
@@ -72,6 +75,7 @@ export class LibraryManager {
         icon?: string;
         folder: string;
         fields?: LibraryFieldInput[];
+        entryFields?: { property: string; type?: string }[];
         titleField?: string;
         coverField?: string;
         propertyScope?: LibraryDefinition['propertyScope'];
@@ -100,6 +104,7 @@ export class LibraryManager {
             icon: input.icon?.trim() || 'library',
             source: { kind: 'folder', folder },
             schema,
+            entryFields: normalizeEntryFields(input.entryFields ?? schema.fields.map((field) => ({ property: field.id.replace(/^yaml:/, ''), type: field.type }))),
             propertyScope: input.propertyScope ?? 'folder',
             fileNameTemplate: input.fileNameTemplate?.trim() || undefined,
             orientation: input.orientation ?? 'vertical',
@@ -121,6 +126,7 @@ export class LibraryManager {
         icon?: string;
         folder?: string;
         fields?: LibraryFieldInput[];
+        entryFields?: { property: string; type?: string }[];
         titleField?: string;
         coverField?: string;
         propertyScope?: LibraryDefinition['propertyScope'];
@@ -155,6 +161,9 @@ export class LibraryManager {
             icon: input.icon === undefined ? existing.icon : input.icon.trim() || 'library',
             source: { kind: 'folder', folder },
             schema,
+            entryFields: input.entryFields === undefined
+                ? existing.entryFields ?? normalizeEntryFields(schema.fields.map((field) => ({ property: field.id.replace(/^yaml:/, ''), type: field.type })))
+                : normalizeEntryFields(input.entryFields),
             propertyScope: input.propertyScope ?? existing.propertyScope ?? 'folder',
             fileNameTemplate: input.fileNameTemplate === undefined ? existing.fileNameTemplate : input.fileNameTemplate.trim() || undefined,
             orientation: input.orientation ?? existing.orientation ?? 'vertical',
@@ -170,6 +179,40 @@ export class LibraryManager {
         this.registry.upsert(updated);
         await this.save();
         return updated;
+    }
+
+    async createCustomLibraryEntry(id: string, rawValues: Record<string, string>): Promise<TFile> {
+        const definition = this.registry.get(id);
+        if (!definition || definition.kind !== 'custom' || definition.source.kind !== 'folder') {
+            throw new Error(`Custom library not found: ${id}`);
+        }
+
+        const entryFields = definition.entryFields ?? normalizeEntryFields(
+            definition.schema.fields.map((field) => ({ property: field.id.replace(/^yaml:/, ''), type: field.type })),
+        );
+        const existingItems = await this.loadItems(id);
+        const inferred = inferPropertyKinds(existingItems.map((item) => stripYamlKeys(item.values)));
+        const values: LibraryEntryValues = {};
+
+        for (const field of entryFields) {
+            const raw = rawValues[field.property] ?? '';
+            if (!raw.trim()) continue;
+            values[field.property] = parseEntryValue(raw, effectiveEntryKind(field.property, definition, inferred));
+        }
+
+        const titleProperty = definition.schema.titleField?.replace(/^yaml:/, '');
+        const titleValue = titleProperty ? values[titleProperty] : undefined;
+        const fallbackProperty = entryFields[0]?.property;
+        const fallbackValue = fallbackProperty ? values[fallbackProperty] : undefined;
+        const template = definition.fileNameTemplate?.trim();
+        const baseName = template
+            ? renderFileNameTemplate(template, values)
+            : String(titleValue ?? fallbackValue ?? 'Untitled').trim() || 'Untitled';
+        const path = `${definition.source.folder}/${baseName}.md`;
+        if (this.app.vault.getAbstractFileByPath(path)) throw new Error(`Entry already exists: ${path}`);
+
+        const markdown = buildEntryMarkdown(values);
+        return this.app.vault.create(path, markdown);
     }
 
     async renameCustomLibrary(id: string, name: string): Promise<LibraryDefinition> {
@@ -254,6 +297,10 @@ function defaultOperators(type: LibraryFieldType): FilterOperator[] {
         case 'list': return ['contains', 'containsAny', 'containsAll', 'notContains', 'empty', 'notEmpty'];
         default: return ['contains', 'equals', 'notEquals', 'empty', 'notEmpty'];
     }
+}
+
+function stripYamlKeys(values: Record<string, unknown>): Record<string, unknown> {
+    return Object.fromEntries(Object.entries(values).map(([key, value]) => [key.replace(/^yaml:/, ''), value]));
 }
 
 function isCustom(definition: LibraryDefinition): boolean {

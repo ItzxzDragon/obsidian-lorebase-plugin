@@ -28,6 +28,28 @@ describe('library view pipeline', () => {
         expect(groups.map((entry) => entry.label)).toEqual(['A', 'Z']);
         expect(groups[1].items.map((entry) => entry.values.name)).toEqual(['A', 'C']);
     });
+    it('groups custom libraries by an arbitrary schema field', () => {
+        const items = [
+            item('A', { 'yaml:status': 'Reading' }),
+            item('B', { status: 'Backlog' }),
+            item('C', { 'yaml:status': 'Reading' }),
+            item('D', {}),
+        ];
+        const group: GroupSpec = { mode: 'field', field: 'yaml:status', order: 'asc' };
+        const groups = groupLibraryItems(items, group);
+        expect(groups.map((entry) => entry.label)).toEqual(['Backlog', 'Reading', 'Ungrouped']);
+        expect(groups[1].items.map((entry) => entry.values.name)).toEqual(['A', 'C']);
+    });
+    it('groups list-valued schema fields deterministically', () => {
+        const items = [
+            item('A', { 'yaml:genres': ['Fantasy', 'Adventure'] }),
+            item('B', { 'yaml:genres': ['Adventure', 'Fantasy'] }),
+            item('C', { 'yaml:genres': ['Mystery'] }),
+        ];
+        const groups = groupLibraryItems(items, { mode: 'field', field: 'yaml:genres', order: 'asc' });
+        expect(groups.map((entry) => entry.label)).toEqual(['Adventure, Fantasy', 'Mystery']);
+        expect(groups[0].items.map((entry) => entry.values.name)).toEqual(['A', 'B']);
+    });
     it('composes filter, sort and group', () => {
         const items = [item('B', { series: 'X', rating: 8 }), item('A', { series: 'X', rating: 9 }), item('C', { series: 'Y', rating: 6 })];
         const groups = applyLibraryView(items, [rule('rating', 'greater', 7)], [{ field: 'rating', order: 'desc' }], { mode: 'series', order: 'asc' });

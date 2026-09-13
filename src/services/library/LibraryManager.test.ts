@@ -44,10 +44,12 @@ describe('LibraryManager', () => {
         expect((stored.customLibraries as Array<{ name: string }>)[0].name).toBe('Reading List');
     });
 
-    it('creates custom fields with YAML ids and type-appropriate default operators', () => {
-        const manager = new LibraryManager(createApp(), () => ({}), async () => undefined);
+    it('creates and persists custom fields with YAML ids and type-appropriate default operators', async () => {
+        const stored: Record<string, unknown> = { language: 'en' };
+        const saveData = vi.fn(async (value: unknown) => Object.assign(stored, value as object));
+        const manager = new LibraryManager(createApp(), () => stored, saveData);
 
-        const definition = manager.createCustomLibrary({
+        const definition = await manager.createCustomLibrary({
             id: 'wishlist',
             name: 'Wishlist',
             folder: 'Wishlist',
@@ -63,5 +65,9 @@ describe('LibraryManager', () => {
         ]);
         expect(definition.schema.fields[0].operators).toContain('between');
         expect(definition.schema.fields[1].operators).toContain('containsAll');
+        expect(stored).toEqual(expect.objectContaining({
+            language: 'en',
+            customLibraries: [expect.objectContaining({ id: 'wishlist', kind: 'custom' })],
+        }));
     });
 });

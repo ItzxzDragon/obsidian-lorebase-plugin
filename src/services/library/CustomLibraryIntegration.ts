@@ -4,7 +4,7 @@ import type { LibraryManager } from './LibraryManager';
 
 /** Bridges the existing LibraryView DOM to the custom-library UI without replacing the built-in view. */
 export class CustomLibraryIntegration {
-    private readonly panes = new WeakMap<HTMLElement, CustomLibraryPane>();
+    private readonly panes = new Map<HTMLElement, CustomLibraryPane>();
     private observer: MutationObserver | null = null;
     private scanQueued = false;
 
@@ -18,6 +18,18 @@ export class CustomLibraryIntegration {
         this.observer = new MutationObserver(() => this.queueScan());
         this.observer.observe(document.body, { childList: true, subtree: true });
         this.scan();
+    }
+
+    refreshPanes(): void {
+        for (const pane of this.panes.values()) pane.refreshLibraries();
+    }
+
+    destroy(): void {
+        this.observer?.disconnect();
+        this.observer = null;
+        this.scanQueued = false;
+        for (const pane of this.panes.values()) pane.destroy();
+        this.panes.clear();
     }
 
     private queueScan(): void {

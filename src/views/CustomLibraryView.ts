@@ -10,15 +10,17 @@ import type { LorebasePluginInterface } from '../types';
 export class CustomLibraryView extends LibraryView {
     private customLibraryPane: CustomLibraryPane | null = null;
     private builtinContent: HTMLElement | null = null;
+    private readonly lorebasePlugin: LorebasePluginInterface;
 
     constructor(leaf: WorkspaceLeaf, plugin: LorebasePluginInterface) {
         super(leaf, plugin);
+        this.lorebasePlugin = plugin;
     }
 
     async onOpen(): Promise<void> {
         await super.onOpen();
 
-        const manager = this.pluginLibraryManager();
+        const manager = this.lorebasePlugin.getLibraryManager();
         if (!manager) return;
 
         this.builtinContent = this.contentEl.querySelector<HTMLElement>('.lorebase-content');
@@ -39,9 +41,5 @@ export class CustomLibraryView extends LibraryView {
         if (!this.builtinContent) return;
         this.builtinContent.toggleClass('is-hidden', !visible);
         this.builtinContent.setAttribute('aria-hidden', String(!visible));
-    }
-
-    private pluginLibraryManager() {
-        return this.plugin.getLibraryManager();
     }
 }

@@ -1,10 +1,12 @@
 import type { MediaType } from '../../types';
 import type { LibraryManager } from './LibraryManager';
 import {
+    buildLibrarySelectionOptions,
     builtinSelection,
     customSelection,
     loadSelectionItems,
     resolveSelection,
+    selectionId,
     type ActiveLibrary,
     type LibrarySelectionOption,
 } from './LibrarySelection';
@@ -21,8 +23,17 @@ export class LibrarySurfaceController {
         this.active = builtinSelection(initialMediaType);
     }
 
+    /** All Built-in and Custom libraries available to the same selector. */
+    getOptions(): LibrarySelectionOption[] {
+        return buildLibrarySelectionOptions(this.manager.listLibraries());
+    }
+
     getSelection(): ActiveLibrary {
         return this.active;
+    }
+
+    getSelectionId(): string {
+        return selectionId(this.active);
     }
 
     getCurrentOption(): LibrarySelectionOption | null {

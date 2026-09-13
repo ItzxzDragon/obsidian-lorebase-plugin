@@ -7,36 +7,28 @@ export interface LibraryGroup<T> {
     items: T[];
 }
 
-/** Reads a field from the normalized values exposed by a library adapter. */
 export function getLibraryValue(item: LibraryItem, field: string): unknown {
-    return item.values[field];
+    return item.values[field] ?? (field.startsWith('yaml:') ? item.values[field.slice(5)] : null);
 }
 
-/** Applies all filter rules with AND semantics. */
 export function filterLibraryItems(items: LibraryItem[], rules: FilterRule[]): LibraryItem[] {
     if (rules.length === 0) return [...items];
     return items.filter((item) => rules.every((rule) => matchesFilterRule(getLibraryValue(item, rule.field), rule)));
 }
 
-/** Applies a stable sequence of sort specifications, with the first spec taking priority. */
 export function sortLibraryItems(items: LibraryItem[], sorts: SortSpec[]): LibraryItem[] {
     if (sorts.length === 0) return [...items];
-    return items
-        .map((item, index) => ({ item, index }))
-        .sort((a, b) => {
-            for (const spec of sorts) {
-                const result = compareValues(getLibraryValue(a.item, sortFieldKey(spec.field)), getLibraryValue(b.item, sortFieldKey(spec.field)));
-                if (result !== 0) return spec.order === 'desc' ? -result : result;
-            }
-            return a.index - b.index;
-        })
-        .map(({ item }) => item);
+    return items.map((item, index) => ({ item, index })).sort((a, b) => {
+        for (const spec of sorts) {
+            const result = compareValues(getLibraryValue(a.item, spec.field), getLibraryValue(b.item, spec.field));
+            if (result !== 0) return spec.order === 'desc' ? -result : result;
+        }
+        return a.index - b.index;
+    }).map(({ item }) => item);
 }
 
-/** Groups items for rendering while preserving their incoming order. */
 export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): LibraryGroup<LibraryItem>[] {
     if (group.mode === 'none') return [{ key: 'all', label: '', items: [...items] }];
-
     const groups = new Map<string, LibraryItem[]>();
     for (const item of items) {
         const value = groupValue(item, group.mode);
@@ -44,12 +36,7 @@ export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): Libra
         bucket.push(item);
         groups.set(value.key, bucket);
     }
-
-    const result = Array.from(groups, ([key, groupItems]) => ({
-        key,
-        label: groupItems[0] ? groupValue(groupItems[0], group.mode).label : key,
-        items: groupItems,
-    }));
+    const result = Array.from(groups, ([key, groupItems]) => ({ key, label: groupItems[0] ? groupValue(groupItems[0], group.mode).label : key, items: groupItems }));
     result.sort((a, b) => group.order === 'desc' ? b.key.localeCompare(a.key) : a.key.localeCompare(b.key));
     return result;
 }
@@ -62,8 +49,8 @@ export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean 
     const value = normalizeValue(rawValue);
     const target = normalizeValue(rule.value);
     switch (rule.operator) {
-        case 'empty': return value === '' || value === null || value === undefined || (Array.isArray(value) && value.length === 0);
-        case 'notEmpty': return !(value === '' || value === null || value === undefined || (Array.isArray(value) && value.length === 0));
+        case 'empty': return isEmpty(value);
+        case 'notEmpty': return !isEmpty(value);
         case 'equals': return compareValues(value, target) === 0;
         case 'notEquals': return compareValues(value, target) !== 0;
         case 'contains': return includesText(value, target);
@@ -79,10 +66,6 @@ export function matchesFilterRule(rawValue: unknown, rule: FilterRule): boolean 
         case 'thisYear': return sameDateBucket(value, new Date(), 'year');
         default: return false;
     }
-}
-
-function sortFieldKey(field: string): string {
-    return field.startsWith('yaml:') ? field.slice(5) : field;
 }
 
 function normalizeValue(value: unknown): unknown {
@@ -103,8 +86,7 @@ function compareValues(a: unknown, b: unknown): number {
     if (left === null || left === undefined || left === '') return -1;
     if (right === null || right === undefined || right === '') return 1;
     if (typeof left === 'number' && typeof right === 'number') return left < right ? -1 : 1;
-    const result = String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
-    return result;
+    return String(left).localeCompare(String(right), undefined, { numeric: true, sensitivity: 'base' });
 }
 
 function includesText(value: unknown, target: unknown): boolean {
@@ -115,6 +97,10 @@ function includesText(value: unknown, target: unknown): boolean {
 
 function toArray(value: unknown): unknown[] {
     return Array.isArray(value) ? value : value === null || value === undefined || value === '' ? [] : [value];
+}
+
+function isEmpty(value: unknown): boolean {
+    return value === null || value === undefined || value === '' || (Array.isArray(value) && value.length === 0);
 }
 
 function sameDateBucket(value: unknown, now: Date, bucket: 'month' | 'year'): boolean {
@@ -133,8 +119,6 @@ function groupValue(item: LibraryItem, mode: Exclude<GroupSpec['mode'], 'none'>)
     const timestamp = typeof raw === 'number' ? raw : Date.parse(String(raw ?? ''));
     if (Number.isNaN(timestamp)) return { key: 'ungrouped', label: 'Ungrouped' };
     const date = new Date(timestamp);
-    const key = mode === 'finishedYear'
-        ? String(date.getFullYear())
-        : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+    const key = mode === 'finishedYear' ? String(date.getFullYear()) : `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
     return { key, label: key };
 }

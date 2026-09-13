@@ -46,6 +46,12 @@ export class LibraryManager {
         return this.registry.get(id);
     }
 
+    getAvailableProperties(id: string): string[] {
+        const definition = this.registry.get(id);
+        if (!definition || definition.kind !== 'custom') return [];
+        return this.folderSource.getAvailableProperties(definition);
+    }
+
     async loadItems(id: string): Promise<LibraryItem[]> {
         const definition = this.registry.get(id);
         if (!definition || definition.source.kind !== 'folder') return [];

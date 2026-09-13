@@ -1,5 +1,6 @@
 import { LibrarySelector } from '../../components/toolbar/LibrarySelector';
 import { LibrarySurfaceController } from './LibrarySurfaceController';
+import { createEmptyFilterGroup } from './unifiedViewState';
 import type { LibraryManager } from './LibraryManager';
 import { LibraryView } from '../../views/LibraryView';
 
@@ -59,11 +60,10 @@ function attachLibrarySurfaceBridge(view: BridgedView, manager: LibraryManager):
         const left = toolbar.querySelector<HTMLElement>('.lorebase-toolbar-left');
         if (!left) return;
 
-        // The unified Library selector replaces the legacy media picker.
         const mediaTrigger = left.querySelector<HTMLElement>('.lorebase-media-trigger');
-        if (mediaTrigger) mediaTrigger.style.display = 'none';
+        if (mediaTrigger) mediaTrigger.style.display = '';
         const mediaTray = toolbar.querySelector<HTMLElement>('.lorebase-media-tray');
-        if (mediaTray) mediaTray.style.display = 'none';
+        if (mediaTray) mediaTray.style.display = '';
 
         if (left.querySelector('.lorebase-library-selector-bridge')) return;
 
@@ -115,7 +115,7 @@ async function selectLibrary(
         if (!definition || definition.kind !== 'custom') return;
 
         await controller.renderCurrentCustomLibrary(content, {
-            rules: definition.filterGroup,
+            rules: definition.filterGroup ?? createEmptyFilterGroup(),
             sorts: definition.sorts ?? [],
             group: definition.groupProperty
                 ? { mode: 'field', field: definition.groupProperty, order: definition.groupDirection ?? 'asc' }

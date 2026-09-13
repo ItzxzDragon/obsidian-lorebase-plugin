@@ -40,6 +40,14 @@ export class LibrarySurfaceController {
         return resolveSelection(this.manager, this.active);
     }
 
+    isCustomSelected(): boolean {
+        return this.active.kind === 'custom';
+    }
+
+    getCurrentCustomLibraryId(): string | null {
+        return this.active.kind === 'custom' ? this.active.libraryId : null;
+    }
+
     selectBuiltin(mediaType: MediaType): void {
         this.active = builtinSelection(mediaType);
     }

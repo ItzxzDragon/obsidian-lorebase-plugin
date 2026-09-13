@@ -17,6 +17,7 @@ export interface ToolbarCallbacks {
     onDeleteSavedView: (id: string) => void;
     onResetView: () => void;
     onMediaTypeChange: (mediaType: MediaType) => void;
+    onCustomLibraryChange?: (libraryId: string | null) => void;
 }
 
 export type TagSummary = {

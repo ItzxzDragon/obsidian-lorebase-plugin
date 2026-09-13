@@ -32,6 +32,7 @@ export class LibraryManager {
         const raw = await this.loadData();
         this.rootData = isRecord(raw) ? { ...raw } : {};
         await this.catalog.loadCustomLibraries();
+        this.customLibraryIntegration.refreshPanes();
     }
 
     async save(): Promise<void> {
@@ -76,6 +77,7 @@ export class LibraryManager {
             schema,
         });
         await this.save();
+        this.customLibraryIntegration.refreshPanes();
         return created;
     }
 
@@ -109,18 +111,21 @@ export class LibraryManager {
         };
         this.registry.upsert({ ...updated, kind: 'custom' } as LibraryDefinition);
         await this.save();
+        this.customLibraryIntegration.refreshPanes();
         return updated;
     }
 
     async renameCustomLibrary(id: string, name: string): Promise<LibraryDefinition> {
         const updated = this.catalog.rename(id, name);
         await this.save();
+        this.customLibraryIntegration.refreshPanes();
         return updated;
     }
 
     async removeCustomLibrary(id: string): Promise<boolean> {
         const removed = this.catalog.remove(id);
         await this.save();
+        this.customLibraryIntegration.refreshPanes();
         return removed;
     }
 

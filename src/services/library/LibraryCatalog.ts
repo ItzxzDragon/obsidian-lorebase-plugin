@@ -1,6 +1,7 @@
 import { LibraryRegistry } from './LibraryRegistry';
 import type { FieldDefinition, FilterOperator, FilterRule, SortSpec } from '../../types';
 import type { FilterGroup, FilterNode } from './unifiedViewState';
+import { normalizeEntryFields } from './entry';
 import type { LibraryDefinition } from './types';
 
 export interface PersistedLibraryDefinition extends LibraryDefinition {
@@ -84,6 +85,10 @@ function normalizeCustomLibrary(value: unknown): PersistedLibraryDefinition | nu
     const filterGroup = normalizeFilterGroup(value.filterGroup);
     const groupProperty = typeof value.groupProperty === 'string' ? value.groupProperty.trim() : '';
     const groupDirection = value.groupDirection === 'desc' ? 'desc' : 'asc';
+    const entryFields = normalizeEntryFields(value.entryFields ?? fields.map((field) => ({
+        property: field.id.replace(/^yaml:/, ''),
+        type: field.type,
+    })));
 
     return {
         kind: 'custom', id, name, icon,
@@ -93,6 +98,7 @@ function normalizeCustomLibrary(value: unknown): PersistedLibraryDefinition | nu
             coverField: typeof schema.coverField === 'string' ? schema.coverField : undefined,
             titleField: typeof schema.titleField === 'string' ? schema.titleField : undefined,
         },
+        entryFields,
         propertyScope: value.propertyScope === 'vault' ? 'vault' : 'folder',
         fileNameTemplate: typeof value.fileNameTemplate === 'string' ? value.fileNameTemplate : undefined,
         orientation: value.orientation === 'horizontal' ? 'horizontal' : 'vertical',

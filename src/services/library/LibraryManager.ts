@@ -4,6 +4,7 @@ import { createBuiltinLibraryDefinitions } from './builtinLibraries';
 import { LibraryCatalog } from './LibraryCatalog';
 import { LibraryRegistry } from './LibraryRegistry';
 import { FolderLibrarySource } from './folderLibrarySource';
+import { CustomLibraryIntegration } from './CustomLibraryIntegration';
 import type { LibraryDefinition, LibraryItem } from './types';
 
 export const CUSTOM_LIBRARIES_KEY = 'customLibraries';
@@ -12,6 +13,7 @@ export class LibraryManager {
     readonly registry = new LibraryRegistry();
     readonly catalog: LibraryCatalog;
     private readonly folderSource: FolderLibrarySource;
+    private readonly customLibraryIntegration: CustomLibraryIntegration;
     private rootData: Record<string, unknown> = {};
 
     constructor(
@@ -22,6 +24,8 @@ export class LibraryManager {
         this.folderSource = new FolderLibrarySource(app);
         for (const definition of createBuiltinLibraryDefinitions()) this.registry.register(definition);
         this.catalog = new LibraryCatalog(this.registry, () => this.rootData[CUSTOM_LIBRARIES_KEY], (value) => this.persistCustomLibraries(value));
+        this.customLibraryIntegration = new CustomLibraryIntegration(app, this);
+        this.customLibraryIntegration.start();
     }
 
     async load(): Promise<void> {

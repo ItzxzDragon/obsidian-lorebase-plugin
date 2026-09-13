@@ -4,6 +4,7 @@ import { createBuiltinLibraryDefinitions } from './builtinLibraries';
 import { LibraryCatalog } from './LibraryCatalog';
 import { LibraryRegistry } from './LibraryRegistry';
 import { FolderLibrarySource } from './folderLibrarySource';
+import { buildLibrarySelectionOptions, type LibrarySelectionOption } from './LibrarySelection';
 import type { LibraryDefinition, LibraryItem } from './types';
 
 export const CUSTOM_LIBRARIES_KEY = 'customLibraries';
@@ -36,6 +37,11 @@ export class LibraryManager {
 
     listLibraries(): LibraryDefinition[] {
         return this.registry.list();
+    }
+
+    /** Returns the single selector model used by the Library surface. */
+    listLibrarySelectionOptions(): LibrarySelectionOption[] {
+        return buildLibrarySelectionOptions(this.registry.list());
     }
 
     listCustomLibraries(): LibraryDefinition[] {

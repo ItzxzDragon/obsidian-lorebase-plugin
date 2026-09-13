@@ -1,8 +1,7 @@
-import { TFile, type App } from 'obsidian';
-import type { FieldDefinition } from '../../types';
+import type { App, CachedMetadata, TFile } from 'obsidian';
 import type { LibraryDefinition, LibraryItem } from './types';
 
-/** Reads Markdown notes from a custom library folder and exposes frontmatter as values. */
+/** Loads Markdown entries from a custom library folder into the shared library model. */
 export class FolderLibrarySource {
     constructor(private readonly app: App) {}
 
@@ -11,31 +10,25 @@ export class FolderLibrarySource {
 
         const folder = normalizeFolder(definition.source.folder);
         const files = this.app.vault.getMarkdownFiles()
-            .filter((file) => isInFolder(file.path, folder));
+            .filter((file) => isInsideFolder(file.path, folder));
 
-        return files.map((file) => this.toLibraryItem(file, definition.schema.fields, definition.schema.titleField));
+        return files.map((file) => this.toLibraryItem(file));
     }
 
-    private toLibraryItem(file: TFile, fields: FieldDefinition[], titleField?: string): LibraryItem {
+    private toLibraryItem(file: TFile): LibraryItem {
         const cache = this.app.metadataCache.getFileCache(file);
         const frontmatter = cache?.frontmatter ?? {};
-        const values: Record<string, unknown> = {
-            name: frontmatter.title ?? frontmatter.name ?? file.basename,
-            filePath: file.path,
+        return {
+            file,
+            values: {
+                ...frontmatter,
+                '$file.name': file.basename,
+                '$file.path': file.path,
+                '$file.ctime': file.stat.ctime,
+                '$file.mtime': file.stat.mtime,
+                '$file.size': file.stat.size,
+            },
         };
-
-        for (const field of fields) {
-            const key = field.id.startsWith('yaml:') ? field.id.slice(5) : field.id;
-            const value = frontmatter[key];
-            values[field.id] = value;
-            if (field.source === 'yaml') values[key] = value;
-        }
-
-        if (titleField) {
-            values.name = values[titleField] ?? frontmatter[titleField] ?? values.name;
-        }
-
-        return { file, values };
     }
 }
 
@@ -43,7 +36,12 @@ function normalizeFolder(folder: string): string {
     return folder.trim().replace(/^\/+|\/+$/g, '');
 }
 
-function isInFolder(path: string, folder: string): boolean {
+function isInsideFolder(path: string, folder: string): boolean {
     if (!folder) return true;
     return path === folder || path.startsWith(`${folder}/`);
+}
+
+/** Reads frontmatter without exposing Obsidian's cache object to library consumers. */
+export function getLibraryFrontmatter(cache: CachedMetadata | null): Record<string, unknown> {
+    return cache?.frontmatter ? { ...cache.frontmatter } : {};
 }

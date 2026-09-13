@@ -93,4 +93,39 @@ describe('LibraryManager', () => {
         ]);
         expect(manager.listCustomLibraries().map((library) => library.id)).toEqual(['wishlist']);
     });
+
+    it('normalizes folder and schema references when creating a custom library', async () => {
+        const stored: Record<string, unknown> = {};
+        const manager = new LibraryManager(createApp(), () => stored, async (value) => Object.assign(stored, value as object));
+
+        const definition = await manager.createCustomLibrary({
+            id: '  notes  ',
+            name: '  Notes  ',
+            folder: '/Library/Notes/',
+            fields: [{ id: 'author', label: 'Author', type: 'text' }],
+            titleField: 'author',
+        });
+
+        expect(definition.id).toBe('notes');
+        expect(definition.name).toBe('Notes');
+        expect(definition.source).toEqual({ kind: 'folder', folder: 'Library/Notes' });
+        expect(definition.schema.titleField).toBe('yaml:author');
+    });
+
+    it('rejects duplicate ids, duplicate fields, and unknown schema references', async () => {
+        const manager = new LibraryManager(createApp(), () => ({}), async () => undefined);
+
+        await expect(manager.createCustomLibrary({ id: 'game', name: 'Games', folder: 'Games' })).rejects.toThrow('Library already exists: game');
+        await expect(manager.createCustomLibrary({
+            id: 'custom', name: 'Custom', folder: 'Custom',
+            fields: [
+                { id: 'rating', label: 'Rating', type: 'number' },
+                { id: 'yaml:rating', label: 'Rating 2', type: 'number' },
+            ],
+        })).rejects.toThrow('Duplicate library field: yaml:rating');
+        await expect(manager.createCustomLibrary({
+            id: 'custom', name: 'Custom', folder: 'Custom',
+            titleField: 'missing',
+        })).rejects.toThrow('Unknown title field: yaml:missing');
+    });
 });

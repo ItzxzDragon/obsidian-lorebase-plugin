@@ -1,10 +1,10 @@
 import type { LibraryDefinition } from '../services/library/types';
 
 export interface CustomLibrarySelectorCallbacks {
-    onSelect: (libraryId: string) => void;
+    onSelect: (libraryId: string | null) => void;
 }
 
-/** Small selector for folder-backed custom libraries. */
+/** Small selector for switching between built-in and folder-backed libraries. */
 export class CustomLibrarySelector {
     private readonly container: HTMLElement;
 
@@ -17,13 +17,12 @@ export class CustomLibrarySelector {
         this.container = parent.createDiv({ cls: 'lorebase-custom-library-selector' });
         const select = this.container.createEl('select', {
             cls: 'lorebase-custom-library-select',
-            attr: { 'aria-label': 'Select custom library' },
+            attr: { 'aria-label': 'Select library' },
         });
-        const placeholder = select.createEl('option', {
-            text: 'Custom libraries',
+        select.createEl('option', {
+            text: 'Built-in libraries',
             value: '',
         });
-        placeholder.disabled = libraries.length === 0;
 
         for (const library of libraries) {
             select.createEl('option', {
@@ -33,9 +32,7 @@ export class CustomLibrarySelector {
         }
 
         select.value = activeLibraryId ?? '';
-        select.addEventListener('change', () => {
-            if (select.value) callbacks.onSelect(select.value);
-        });
+        select.addEventListener('change', () => callbacks.onSelect(select.value || null));
     }
 
     destroy(): void {

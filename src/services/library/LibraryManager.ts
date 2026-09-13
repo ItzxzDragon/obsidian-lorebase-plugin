@@ -4,7 +4,6 @@ import { createBuiltinLibraryDefinitions } from './builtinLibraries';
 import { LibraryCatalog } from './LibraryCatalog';
 import { LibraryRegistry } from './LibraryRegistry';
 import { FolderLibrarySource } from './folderLibrarySource';
-import { CustomLibraryIntegration } from './CustomLibraryIntegration';
 import type { LibraryDefinition, LibraryItem } from './types';
 
 export const CUSTOM_LIBRARIES_KEY = 'customLibraries';
@@ -13,7 +12,6 @@ export class LibraryManager {
     readonly registry = new LibraryRegistry();
     readonly catalog: LibraryCatalog;
     private readonly folderSource: FolderLibrarySource;
-    private readonly customLibraryIntegration: CustomLibraryIntegration;
     private rootData: Record<string, unknown> = {};
 
     constructor(
@@ -24,15 +22,12 @@ export class LibraryManager {
         this.folderSource = new FolderLibrarySource(app);
         for (const definition of createBuiltinLibraryDefinitions()) this.registry.register(definition);
         this.catalog = new LibraryCatalog(this.registry, () => this.rootData[CUSTOM_LIBRARIES_KEY], (value) => this.persistCustomLibraries(value));
-        this.customLibraryIntegration = new CustomLibraryIntegration(app, this);
-        this.customLibraryIntegration.start();
     }
 
     async load(): Promise<void> {
         const raw = await this.loadData();
         this.rootData = isRecord(raw) ? { ...raw } : {};
         await this.catalog.loadCustomLibraries();
-        this.customLibraryIntegration.refreshPanes();
     }
 
     async save(): Promise<void> {
@@ -45,6 +40,10 @@ export class LibraryManager {
 
     listCustomLibraries(): LibraryDefinition[] {
         return this.registry.list().filter(isCustom);
+    }
+
+    getLibrary(id: string): LibraryDefinition | undefined {
+        return this.registry.get(id);
     }
 
     async loadItems(id: string): Promise<LibraryItem[]> {
@@ -77,7 +76,6 @@ export class LibraryManager {
             schema,
         });
         await this.save();
-        this.customLibraryIntegration.refreshPanes();
         return created;
     }
 
@@ -111,21 +109,18 @@ export class LibraryManager {
         };
         this.registry.upsert({ ...updated, kind: 'custom' } as LibraryDefinition);
         await this.save();
-        this.customLibraryIntegration.refreshPanes();
         return updated;
     }
 
     async renameCustomLibrary(id: string, name: string): Promise<LibraryDefinition> {
         const updated = this.catalog.rename(id, name);
         await this.save();
-        this.customLibraryIntegration.refreshPanes();
         return updated;
     }
 
     async removeCustomLibrary(id: string): Promise<boolean> {
         const removed = this.catalog.remove(id);
         await this.save();
-        this.customLibraryIntegration.refreshPanes();
         return removed;
     }
 

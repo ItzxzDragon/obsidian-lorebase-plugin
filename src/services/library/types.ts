@@ -7,11 +7,16 @@ export interface LibraryItem {
     values: Record<string, unknown>;
 }
 
-/** Source of a library's entries. Custom libraries use an Obsidian folder. */
-export type LibrarySource = {
-    kind: 'folder';
-    folder: string;
-};
+/** Source of a library's entries. Built-ins and custom folders share one model. */
+export type LibrarySource =
+    | {
+        kind: 'builtin';
+        mediaType: MediaType;
+    }
+    | {
+        kind: 'folder';
+        folder: string;
+    };
 
 /** Minimal schema required by the generic library layer. */
 export interface LibrarySchema {

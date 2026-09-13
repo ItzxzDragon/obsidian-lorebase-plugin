@@ -19,8 +19,8 @@ export type MediaStatus = GameStatus | AnimeStatus;
 export type SettingsLayoutMode = 'tabs' | 'accordion';
 export type CardClickAction = 'open' | 'edit';
 export type StatusLabelSettings = { games: Partial<Record<GameStatus, string>>; anime: Partial<Record<AnimeStatus, string>>; movies: Partial<Record<VideoStatus, string>>; series: Partial<Record<VideoStatus, string>>; books: Partial<Record<ReadingStatus, string>>; manga: Partial<Record<ReadingStatus, string>>; };
-export interface TagPreset { id: string; label: string; tag: string; icon?: string; }
 interface TagPresetSettings { games: TagPreset[]; }
+export interface TagPreset { id: string; label: string; tag: string; icon?: string; }
 export type NoteImportWriteMode = 'copy' | 'replace';
 export type NoteImportTargetMedia = 'auto' | 'games' | 'anime' | 'movies' | 'series' | 'books' | 'manga';
 export interface NoteImportFieldMapping { key: string; aliases: string[]; }
@@ -58,7 +58,7 @@ interface OverlayTextOffset { x: number; y: number; }
 interface OverlayTextLayout { title: OverlayTextOffset; year: OverlayTextOffset; format: OverlayTextOffset; description: OverlayTextOffset; }
 interface OverlayTextVisibility { title: boolean; year: boolean; format: boolean; description: boolean; }
 interface BadgeItemSettings { enabled: boolean; position: BadgePosition; x: number; y: number; }
-interface BadgeSettings { status: BadgeItemSettings & { iconOnly: boolean }; rating: BadgeItemSettings & { mode: RatingBadgeMode }; favorite: BadgeItemSettings & { subtlePulse: boolean }; }
+interface BadgeSettings { enabled: boolean; position: BadgePosition; x: number; y: number; }
 interface BaseMediaItem { filePath: string; displayName: string; nameLower: string; year: number | null; description: string; userRating: UserRating; favorite: boolean; poster: string | null; imageUrl: string; horizontalImageUrl?: string | null; hasCustomPoster: boolean; isAdult: boolean; communityRating?: number | null; communityVotes?: number | null; communityRatingProvider?: string | null; myNotes?: string; started?: string | null; finished?: string | null; rawFields?: Record<string, string | number | boolean | string[] | null>; }
 export interface GameItem extends BaseMediaItem { type: 'game'; status: GameStatus; gameSeries: string; dateCompleted: number | null; started?: string | null; finished?: string | null; releaseDate?: string | null; publisher?: string; developer?: string; tags: string[]; genres: string[]; platforms?: string[]; sourceUrl?: string | null; integrationProvider?: 'rawg' | 'steam' | 'igdb' | null; integrationId?: string | null; steamAppId?: string | null; dlc?: GameDlc[]; relatedMedia?: RelatedMediaLink[]; }
 export interface GameDlc { id: string; provider: 'steam' | 'igdb'; title: string; imageUrl?: string | null; url?: string | null; userRating?: UserRating; owned?: boolean; }

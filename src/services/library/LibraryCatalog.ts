@@ -1,5 +1,5 @@
 import { LibraryRegistry } from './LibraryRegistry';
-import type { FieldDefinition, FilterOperator, FilterRule, GroupSpec, SortSpec } from '../../types';
+import type { FieldDefinition, FilterOperator, FilterRule, SortSpec } from '../../types';
 import type { FilterGroup, FilterNode } from './unifiedViewState';
 import type { LibraryDefinition } from './types';
 
@@ -139,10 +139,15 @@ function normalizeSorts(value: unknown): SortSpec[] | undefined {
     if (!Array.isArray(value)) return undefined;
     const result: SortSpec[] = [];
     for (const entry of value) {
-        if (!isRecord(entry) || typeof entry.field !== 'string') continue;
-        const field = entry.field.trim();
+        if (!isRecord(entry)) continue;
+        const field = typeof entry.field === 'string'
+            ? entry.field.trim()
+            : typeof entry.property === 'string'
+                ? entry.property.trim()
+                : '';
         if (!field) continue;
-        result.push({ field: field as SortSpec['field'], order: entry.order === 'desc' ? 'desc' : 'asc' });
+        const order = entry.order === 'desc' || entry.direction === 'desc' ? 'desc' : 'asc';
+        result.push({ field: field as SortSpec['field'], order });
     }
     return result;
 }
@@ -164,7 +169,11 @@ function normalizeFilterNode(value: unknown): FilterNode | null {
 
 function normalizeFilterRule(value: Record<string, unknown>): FilterRule | null {
     const id = typeof value.id === 'string' ? value.id.trim() : '';
-    const field = typeof value.field === 'string' ? value.field.trim() : '';
+    const field = typeof value.field === 'string'
+        ? value.field.trim()
+        : typeof value.property === 'string'
+            ? value.property.trim()
+            : '';
     const fieldType = value.fieldType;
     const operator = value.operator;
     if (!id || !field || !['text', 'number', 'date', 'boolean', 'list'].includes(String(fieldType))) return null;

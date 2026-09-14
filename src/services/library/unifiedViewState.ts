@@ -25,7 +25,7 @@ export function createEmptyFilterGroup(mode: FilterMode = 'and', id = createView
 }
 
 export function isFilterGroup(node: FilterNode): node is FilterGroup {
-    return node.kind === 'group';
+    return 'kind' in node && node.kind === 'group';
 }
 
 export function cloneFilterGroup(group: FilterGroup): FilterGroup {

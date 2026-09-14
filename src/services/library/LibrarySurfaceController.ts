@@ -18,6 +18,7 @@ import {
     countFilterRules,
     createEmptyFilterGroup,
     createViewId,
+    isFilterGroup,
     type FilterGroup,
     type UnifiedLibraryViewState,
     type UnifiedSavedView,
@@ -369,7 +370,7 @@ function viewStateFromDefinition(definition: LibraryDefinition): UnifiedLibraryV
 function flattenFilterRules(group: FilterGroup): FilterRule[] {
     const rules: FilterRule[] = [];
     for (const child of group.children) {
-        if (child.kind === 'group') rules.push(...flattenFilterRules(child));
+        if (isFilterGroup(child)) rules.push(...flattenFilterRules(child));
         else rules.push({
             ...child,
             value: Array.isArray(child.value) ? [...child.value] : child.value,

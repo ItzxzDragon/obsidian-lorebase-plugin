@@ -14,6 +14,7 @@ import {
 export interface FilterGroupEditorCallbacks {
     onChange: (group: FilterGroup) => void;
     onAddRule: (group: FilterGroup) => FilterRule | undefined;
+    onRenderRule?: (parent: HTMLElement, rule: FilterRule, group: FilterGroup) => void;
 }
 
 export interface FilterGroupEditorOptions {
@@ -92,8 +93,13 @@ export class FilterGroupEditor {
 
         const children = section.createDiv({ cls: 'lorebase-filter-group-children' });
         for (const child of group.children) {
-            if (isFilterGroup(child)) this.renderGroup(children, child, false, rootGroup);
-            else this.renderRulePlaceholder(children, child, group, rootGroup);
+            if (isFilterGroup(child)) {
+                this.renderGroup(children, child, false, rootGroup);
+            } else if (this.callbacks.onRenderRule) {
+                this.callbacks.onRenderRule(children, child, group);
+            } else {
+                this.renderRulePlaceholder(children, child, rootGroup);
+            }
         }
 
         const actions = section.createDiv({ cls: 'lorebase-filter-group-actions' });
@@ -118,7 +124,7 @@ export class FilterGroupEditor {
         });
     }
 
-    private renderRulePlaceholder(parent: HTMLElement, rule: FilterRule, group: FilterGroup, rootGroup: FilterGroup): void {
+    private renderRulePlaceholder(parent: HTMLElement, rule: FilterRule, rootGroup: FilterGroup): void {
         const row = parent.createDiv({ cls: 'lorebase-filter-rule' });
         row.dataset.ruleId = rule.id;
         row.createSpan({ cls: 'lorebase-filter-rule-label', text: rule.field });

@@ -19,7 +19,6 @@ import {
     createEmptyFilterGroup,
     createViewId,
     type FilterGroup,
-    type FilterNode,
     type UnifiedLibraryViewState,
     type UnifiedSavedView,
 } from './unifiedViewState';
@@ -124,6 +123,7 @@ export class LibrarySurfaceController {
     /** Replace the canonical View/Filter/Sort/Group state without sharing mutable references. */
     setViewState(state: UnifiedLibraryViewState): void {
         this.viewState = cloneUnifiedViewState(state);
+        this.syncCustomDefinitionViewState();
     }
 
     /** Update only the multi-sort list. */
@@ -132,6 +132,7 @@ export class LibrarySurfaceController {
             ...this.viewState,
             sorts: sorts.map((sort) => ({ ...sort })),
         };
+        this.syncCustomDefinitionViewState();
     }
 
     /** Update the nested filter tree and derive the legacy flat filter list for consumers that still need it. */
@@ -144,6 +145,7 @@ export class LibrarySurfaceController {
             filters,
             filterGroup: clonedGroup,
         };
+        this.syncCustomDefinitionViewState();
     }
 
     /** Update the root filter mode while preserving its nested children. */
@@ -156,6 +158,7 @@ export class LibrarySurfaceController {
                 mode: filterMode,
             },
         };
+        this.syncCustomDefinitionViewState();
     }
 
     /** Update arbitrary property grouping. An empty property disables grouping. */
@@ -165,6 +168,7 @@ export class LibrarySurfaceController {
             groupProperty: groupProperty.trim(),
             groupDirection,
         };
+        this.syncCustomDefinitionViewState();
     }
 
     /** Return the number of effective filter rules, including rules inside nested groups. */
@@ -197,6 +201,7 @@ export class LibrarySurfaceController {
             savedViews,
             activeSavedViewId: id,
         };
+        this.syncCustomDefinitionViewState();
         return cloneSavedView(savedView);
     }
 
@@ -204,6 +209,7 @@ export class LibrarySurfaceController {
     applySavedView(id: string | null): boolean {
         if (!id) {
             this.viewState = { ...cloneUnifiedViewState(this.viewState), activeSavedViewId: '' };
+            this.syncCustomDefinitionViewState();
             return true;
         }
         const saved = this.viewState.savedViews.find((view) => view.id === id);
@@ -214,6 +220,7 @@ export class LibrarySurfaceController {
             activeSavedViewId: id,
         });
         this.viewState = restored;
+        this.syncCustomDefinitionViewState();
         return true;
     }
 
@@ -227,6 +234,7 @@ export class LibrarySurfaceController {
             viewIndex === index ? { ...view, name: normalizedName } : cloneSavedView(view),
         );
         this.viewState = { ...this.viewState, savedViews };
+        this.syncCustomDefinitionViewState();
         return true;
     }
 
@@ -239,6 +247,7 @@ export class LibrarySurfaceController {
             savedViews: next,
             activeSavedViewId: this.viewState.activeSavedViewId === id ? '' : this.viewState.activeSavedViewId,
         };
+        this.syncCustomDefinitionViewState();
         return true;
     }
 
@@ -306,6 +315,23 @@ export class LibrarySurfaceController {
     async loadCustomItems(): Promise<LibraryItem[]> {
         return this.loadItems();
     }
+
+    /** Keep the persisted custom definition aligned with the canonical view state. */
+    private syncCustomDefinitionViewState(): void {
+        const definition = this.getCurrentDefinition();
+        if (!definition || definition.kind !== 'custom') return;
+        definition.sorts = this.viewState.sorts.map((sort) => ({ ...sort }));
+        definition.filterMode = this.viewState.filterMode;
+        definition.filters = this.viewState.filters.map((rule) => ({
+            ...rule,
+            value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
+        }));
+        definition.filterGroup = cloneFilterGroup(this.viewState.filterGroup);
+        definition.groupProperty = this.viewState.groupProperty || undefined;
+        definition.groupDirection = this.viewState.groupDirection;
+        definition.savedViews = this.viewState.savedViews.map((view) => cloneSavedView(view));
+        definition.activeSavedViewId = this.viewState.activeSavedViewId;
+    }
 }
 
 function createDefaultViewState(): UnifiedLibraryViewState {
@@ -324,6 +350,10 @@ function createDefaultViewState(): UnifiedLibraryViewState {
 function viewStateFromDefinition(definition: LibraryDefinition): UnifiedLibraryViewState {
     const filterGroup = definition.filterGroup ?? createEmptyFilterGroup('and', 'root');
     const clonedGroup = cloneFilterGroup(filterGroup);
+    const savedViews = (definition.savedViews ?? []).map((view) => cloneSavedView(view));
+    const activeSavedViewId = definition.activeSavedViewId && savedViews.some((view) => view.id === definition.activeSavedViewId)
+        ? definition.activeSavedViewId
+        : '';
     return {
         sorts: definition.sorts?.map((sort) => ({ ...sort })) ?? [],
         filterMode: clonedGroup.mode,
@@ -331,8 +361,8 @@ function viewStateFromDefinition(definition: LibraryDefinition): UnifiedLibraryV
         filterGroup: clonedGroup,
         groupProperty: definition.groupProperty ?? '',
         groupDirection: definition.groupDirection ?? 'asc',
-        savedViews: [],
-        activeSavedViewId: '',
+        savedViews,
+        activeSavedViewId,
     };
 }
 

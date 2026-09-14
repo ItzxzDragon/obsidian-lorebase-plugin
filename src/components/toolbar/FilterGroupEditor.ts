@@ -15,6 +15,7 @@ export interface FilterGroupEditorCallbacks {
     onChange: (group: FilterGroup) => void;
     onAddRule: (group: FilterGroup) => FilterRule | undefined;
     onRenderRule?: (parent: HTMLElement, rule: FilterRule, group: FilterGroup) => void;
+    onRenderAddRule?: (parent: HTMLElement, group: FilterGroup, addRule: () => void) => void;
 }
 
 export interface FilterGroupEditorOptions {
@@ -103,16 +104,21 @@ export class FilterGroupEditor {
         }
 
         const actions = section.createDiv({ cls: 'lorebase-filter-group-actions' });
-        const addRule = actions.createEl('button', {
-            cls: 'lorebase-filter-group-add-rule',
-            text: this.labels.addRule,
-            attr: { type: 'button' },
-        });
-        addRule.addEventListener('click', () => {
+        const addRule = (): void => {
             const rule = this.callbacks.onAddRule(group);
             if (!rule) return;
             this.callbacks.onChange(replaceGroup(rootGroup, addFilterRule(group, rule)));
-        });
+        };
+        if (this.callbacks.onRenderAddRule) {
+            this.callbacks.onRenderAddRule(actions, group, addRule);
+        } else {
+            const addRuleButton = actions.createEl('button', {
+                cls: 'lorebase-filter-group-add-rule',
+                text: this.labels.addRule,
+                attr: { type: 'button' },
+            });
+            addRuleButton.addEventListener('click', addRule);
+        }
 
         const addGroup = actions.createEl('button', {
             cls: 'lorebase-filter-group-add-group',

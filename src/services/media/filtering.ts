@@ -1,4 +1,4 @@
-import { FilterState, MediaStatus, SortField, SortOrder } from '../../types';
+import { FilterState, MediaStatus, SortField, SortOrder, FilterGroup } from '../../types';
 import { compareNames, hasAllValues } from './serviceUtils';
 import {
     FilterableMediaItem,
@@ -6,6 +6,7 @@ import {
     matchesFilterRule,
     parseDateValue,
 } from './libraryViewState';
+import { matchesFilterGroup } from '../library/unifiedViewState';
 
 export type { FilterableMediaItem } from './libraryViewState';
 
@@ -18,20 +19,26 @@ interface FilterAndSortOptions<T extends FilterableMediaItem> {
     getCompletedDate: (item: T) => number | null | undefined;
 }
 
+type HierarchicalFilterState = FilterState & { filterGroup?: FilterGroup };
+
 export function filterAndSortMedia<T extends FilterableMediaItem>(
     options: FilterAndSortOptions<T>
 ): T[] {
     const { items, filter, sortField, sortOrder, isVisible, getCompletedDate } = options;
+    const hierarchicalFilter = filter as HierarchicalFilterState;
     const rawSearch = filter.searchTerm ? filter.searchTerm.trim() : '';
     const isSearching = rawSearch.length > 0;
     const searchLower = isSearching ? rawSearch.toLowerCase() : '';
+    const filterRuleCount = hierarchicalFilter.filterGroup
+        ? countFilterGroupRules(hierarchicalFilter.filterGroup)
+        : filter.rules?.length ?? 0;
 
     const hasGlobalFilters = isSearching
         || filter.favoriteOnly
         || filter.statuses.length > 0
         || filter.tags.length > 0
         || filter.genres.length > 0
-        || Boolean(filter.rules?.length);
+        || filterRuleCount > 0;
 
     const statusSet = filter.statuses.length > 0 ? new Set<MediaStatus>(filter.statuses) : null;
     const selectedTags = filter.tags.length > 0 ? filter.tags : null;
@@ -48,12 +55,22 @@ export function filterAndSortMedia<T extends FilterableMediaItem>(
         if (filter.favoriteOnly && !item.favorite) continue;
         if (selectedTags && !hasAllValues(item.tags, selectedTags)) continue;
         if (selectedGenres && !hasAllValues(item.genres, selectedGenres)) continue;
-        if (filter.rules?.some((rule) => !matchesFilterRule(item, rule))) continue;
+
+        if (hierarchicalFilter.filterGroup) {
+            if (!matchesFilterGroup(hierarchicalFilter.filterGroup, (rule) => matchesFilterRule(item, rule))) continue;
+        } else if (filter.rules?.some((rule) => !matchesFilterRule(item, rule))) {
+            continue;
+        }
 
         result.push(item);
     }
 
     return sortMediaItemsSafe(result, sortField, sortOrder, getCompletedDate);
+}
+
+function countFilterGroupRules(group: FilterGroup): number {
+    return group.children.reduce((count, child) =>
+        count + (child.kind === 'group' ? countFilterGroupRules(child) : 1), 0);
 }
 
 function sortMediaItemsSafe<T extends FilterableMediaItem>(

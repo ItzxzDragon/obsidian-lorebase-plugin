@@ -1,15 +1,6 @@
-import type { FilterRule, GroupSpec, SortSpec, SortOrder } from '../../types';
+import type { FilterGroup, FilterMode, FilterNode, FilterRule, GroupSpec, SortSpec, SortOrder } from '../../types';
 
-export type FilterMode = 'and' | 'or' | 'none';
-
-export interface FilterGroup {
-    kind: 'group';
-    id: string;
-    mode: FilterMode;
-    children: FilterNode[];
-}
-
-export type FilterNode = FilterRule | FilterGroup;
+export type { FilterGroup, FilterMode, FilterNode } from '../../types';
 
 export interface UnifiedLibraryViewState {
     sorts: SortSpec[];

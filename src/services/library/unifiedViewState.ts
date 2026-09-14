@@ -83,6 +83,15 @@ export function updateFilterGroupMode(group: FilterGroup, groupId: string, mode:
     return next;
 }
 
+export function updateFilterRule(group: FilterGroup, ruleId: string, update: Partial<FilterRule>): FilterGroup {
+    const next = cloneFilterGroup(group);
+    const rule = findFilterRule(next, ruleId);
+    if (!rule) throw new Error(`Filter rule not found: ${ruleId}`);
+    Object.assign(rule, update);
+    if (Array.isArray(rule.value)) rule.value = [...rule.value];
+    return next;
+}
+
 export function removeFilterNode(group: FilterGroup, nodeId: string): FilterGroup {
     if (group.id === nodeId) throw new Error('Cannot remove the root filter group');
     const next = cloneFilterGroup(group);
@@ -90,11 +99,6 @@ export function removeFilterNode(group: FilterGroup, nodeId: string): FilterGrou
     return next;
 }
 
-/**
- * Evaluate a filter tree without coupling the tree model to media-item storage.
- * The caller supplies the existing rule matcher so nested groups use exactly the
- * same rule semantics as the rest of the library.
- */
 export function matchesFilterGroup(
     group: FilterGroup,
     matchesRule: (rule: FilterRule) => boolean
@@ -113,6 +117,18 @@ function findFilterGroup(group: FilterGroup, id: string): FilterGroup | undefine
         if (!isFilterGroup(child)) continue;
         const found = findFilterGroup(child, id);
         if (found) return found;
+    }
+    return undefined;
+}
+
+function findFilterRule(group: FilterGroup, id: string): FilterRule | undefined {
+    for (const child of group.children) {
+        if (isFilterGroup(child)) {
+            const found = findFilterRule(child, id);
+            if (found) return found;
+        } else if (child.id === id) {
+            return child;
+        }
     }
     return undefined;
 }

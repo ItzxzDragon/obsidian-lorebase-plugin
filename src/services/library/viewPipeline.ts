@@ -51,7 +51,7 @@ export function groupLibraryItems(items: LibraryItem[], group: GroupSpec): Libra
 }
 
 export function applyLibraryView(items: LibraryItem[], rules: FilterRule[] | FilterGroup, sorts: SortSpec[], group: GroupSpec, fields: FieldDefinition[] = []): LibraryGroup<LibraryItem>[] {
-    const filtered = isFilterGroup(rules)
+    const filtered = Array.isArray(rules)
         ? filterLibraryItems(items, rules)
         : filterLibraryItems(items, rules);
     return groupLibraryItems(sortLibraryItems(filtered, sorts, fields), group);

@@ -52,9 +52,9 @@ export class CustomLibraryEntryModal extends Modal {
                 : String(parsed[this.fields[0]?.property ?? ''] ?? 'Untitled').trim() || 'Untitled';
             previewValue.setText(`${name}.md`);
         };
-        for (const input of body.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')) {
+        Array.from(body.querySelectorAll<HTMLInputElement | HTMLTextAreaElement>('input, textarea')).forEach((input) => {
             input.addEventListener('input', updatePreview);
-        }
+        });
         updatePreview();
 
         const footer = contentEl.createDiv({ cls: 'lorebase-modal-actions lorebase-select-footer' });

@@ -33,7 +33,7 @@ const scriptContext = await esbuild.context({
 });
 
 const styleContext = await esbuild.context({
-    entryPoints: ["src/styles.css"],
+    entryPoints: ["src/bundled-styles.css"],
     bundle: true,
     target: "es2018",
     logLevel: "info",

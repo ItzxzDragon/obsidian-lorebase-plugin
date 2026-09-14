@@ -337,7 +337,7 @@ function normalizeFilterGroup(raw: unknown, legacyRules: FilterRule[], fallback:
     return fallback ? cloneFilterGroup(fallback) : createEmptyFilterGroup('and', 'root');
 }
 
-function normalizeFilterGroupRecord(raw: Record<string, unknown>): LibraryViewState['filterGroup'] {
+function normalizeFilterGroupRecord(raw: Record<string, unknown>): NonNullable<LibraryViewState['filterGroup']> {
     const mode = raw.mode === 'and' || raw.mode === 'or' || raw.mode === 'none' ? raw.mode : 'and';
     const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : 'root';
     const children: NonNullable<LibraryViewState['filterGroup']>['children'] = [];

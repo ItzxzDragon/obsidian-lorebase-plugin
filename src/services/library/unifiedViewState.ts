@@ -99,6 +99,23 @@ export function removeFilterNode(group: FilterGroup, nodeId: string): FilterGrou
     return next;
 }
 
+/**
+ * Evaluate a filter tree without coupling the tree model to media-item storage.
+ * The caller supplies the existing rule matcher so nested groups use exactly the
+ * same rule semantics as the rest of the library.
+ */
+export function matchesFilterGroup(
+    group: FilterGroup,
+    matchesRule: (rule: FilterRule) => boolean
+): boolean {
+    if (group.mode === 'none') return true;
+    const results = group.children.map((child) => isFilterGroup(child)
+        ? matchesFilterGroup(child, matchesRule)
+        : matchesRule(child));
+    if (group.mode === 'or') return results.some(Boolean);
+    return results.every(Boolean);
+}
+
 function findFilterGroup(group: FilterGroup, id: string): FilterGroup | undefined {
     if (group.id === id) return group;
     for (const child of group.children) {

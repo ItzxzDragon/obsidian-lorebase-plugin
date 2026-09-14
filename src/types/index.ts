@@ -40,11 +40,14 @@ export type SortOrder = 'asc' | 'desc';
 export type LibraryFieldType = 'text' | 'number' | 'date' | 'boolean' | 'list';
 export type FilterOperator = 'contains' | 'equals' | 'notEquals' | 'empty' | 'notEmpty' | 'greater' | 'less' | 'between' | 'isTrue' | 'isFalse' | 'containsAny' | 'containsAll' | 'notContains' | 'thisMonth' | 'thisYear';
 export interface FilterRule { id: string; field: string; fieldType: LibraryFieldType; operator: FilterOperator; value?: string | number | boolean | string[] | null; valueTo?: string | number | null; }
+export type FilterMode = 'and' | 'or' | 'none';
+export interface FilterGroup { kind: 'group'; id: string; mode: FilterMode; children: FilterNode[]; }
+export type FilterNode = FilterRule | FilterGroup;
 export interface FieldDefinition { id: string; label: string; icon: string; type: LibraryFieldType; source: 'builtin' | 'yaml'; operators: FilterOperator[]; options?: Array<{ value: string; label: string }>; }
 export type GroupMode = 'none' | 'series' | 'finishedMonth' | 'finishedYear' | 'field';
 export interface GroupSpec { mode: GroupMode; order: SortOrder; field?: string; }
 export interface SortSpec { field: SortField; order: SortOrder; }
-export interface LibraryViewState { sort: SortSpec; group: GroupSpec; rules: FilterRule[]; tags: string[]; genres: string[]; }
+export interface LibraryViewState { sort: SortSpec; group: GroupSpec; rules: FilterRule[]; filterGroup: FilterGroup; tags: string[]; genres: string[]; }
 export interface SavedLibraryView { id: string; name: string; state: LibraryViewState; readonly?: boolean; }
 export type ViewMode = 'grid' | 'horizontal';
 export type Language = 'en' | 'ru' | 'uk';

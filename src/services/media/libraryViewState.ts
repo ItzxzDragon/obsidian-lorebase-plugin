@@ -340,7 +340,7 @@ function normalizeFilterGroup(raw: unknown, legacyRules: FilterRule[], fallback:
 function normalizeFilterGroupRecord(raw: Record<string, unknown>): LibraryViewState['filterGroup'] {
     const mode = raw.mode === 'and' || raw.mode === 'or' || raw.mode === 'none' ? raw.mode : 'and';
     const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : 'root';
-    const children: LibraryViewState['filterGroup']['children'] = [];
+    const children: NonNullable<LibraryViewState['filterGroup']>['children'] = [];
     if (Array.isArray(raw.children)) {
         for (const child of raw.children) {
             const childRecord = asRecord(child);

@@ -6,7 +6,7 @@ import {
     matchesFilterRule,
     parseDateValue,
 } from './libraryViewState';
-import { matchesFilterGroup } from '../library/unifiedViewState';
+import { isFilterGroup, matchesFilterGroup } from '../library/unifiedViewState';
 
 export type { FilterableMediaItem } from './libraryViewState';
 
@@ -70,7 +70,7 @@ export function filterAndSortMedia<T extends FilterableMediaItem>(
 
 function countFilterGroupRules(group: FilterGroup): number {
     return group.children.reduce((count, child) =>
-        count + (child.kind === 'group' ? countFilterGroupRules(child) : 1), 0);
+        count + (isFilterGroup(child) ? countFilterGroupRules(child) : 1), 0);
 }
 
 function sortMediaItemsSafe<T extends FilterableMediaItem>(

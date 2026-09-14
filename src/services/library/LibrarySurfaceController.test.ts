@@ -4,6 +4,7 @@ import type { LibraryManager } from './LibraryManager';
 import type { LibraryDefinition } from './types';
 import type { LibrarySelectionOption } from './LibrarySelection';
 import type { LibrarySurfaceRenderer } from './LibrarySurfaceRenderer';
+import { createEmptyFilterGroup } from './unifiedViewState';
 
 function customLibrary(id = 'my-library'): LibraryDefinition {
     return {
@@ -115,7 +116,49 @@ describe('LibrarySurfaceController', () => {
         await controller.renderCustomLibrary(parent, { sorts: [] });
 
         expect(manager.loadItems).toHaveBeenCalledWith(definition.id);
-        expect(renderer.render).toHaveBeenCalledWith(parent, items, definition, { sorts: [] });
+        expect(renderer.render).toHaveBeenCalledWith(parent, items, definition, {
+            sorts: [],
+            rules: createEmptyFilterGroup('and', 'root'),
+            group: { mode: 'none', order: 'asc' },
+            fields: [],
+        });
+    });
+
+    it('restores and synchronizes custom library saved-view state', () => {
+        const definition = customLibrary();
+        const filterGroup = createEmptyFilterGroup('or', 'root');
+        definition.filterMode = 'or';
+        definition.filterGroup = filterGroup;
+        definition.savedViews = [{
+            id: 'view-1',
+            name: 'Favorites',
+            state: {
+                sorts: [],
+                filterMode: 'or',
+                filters: [],
+                filterGroup,
+                groupProperty: 'yaml:Genre',
+                groupDirection: 'desc',
+                activeSavedViewId: 'view-1',
+            },
+        }];
+        definition.activeSavedViewId = 'view-1';
+
+        const manager = {
+            getLibrary: vi.fn((id: string) => id === definition.id ? definition : undefined),
+            listLibraries: vi.fn(() => [definition]),
+        } as unknown as LibraryManager;
+        const controller = new LibrarySurfaceController(manager, 'game');
+
+        controller.selectCustom(definition.id);
+        expect(controller.getViewState().activeSavedViewId).toBe('view-1');
+        expect(controller.getViewState().savedViews[0]?.name).toBe('Favorites');
+
+        controller.setGrouping('yaml:Status', 'asc');
+
+        expect(definition.groupProperty).toBe('yaml:Status');
+        expect(definition.groupDirection).toBe('asc');
+        expect(definition.savedViews?.[0]?.name).toBe('Favorites');
     });
 
     it('rejects unknown custom libraries', () => {

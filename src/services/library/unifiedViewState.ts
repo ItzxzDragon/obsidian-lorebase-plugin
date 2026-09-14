@@ -67,6 +67,60 @@ function cloneSavedViewState(state: UnifiedSavedView['state']): UnifiedSavedView
     };
 }
 
+export function addFilterRule(group: FilterGroup, rule: FilterRule, index?: number): FilterGroup {
+    const next = cloneFilterGroup(group);
+    const insertAt = index === undefined ? next.children.length : Math.max(0, Math.min(index, next.children.length));
+    next.children.splice(insertAt, 0, {
+        ...rule,
+        value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
+    });
+    return next;
+}
+
+export function addFilterGroup(group: FilterGroup, mode: FilterMode = 'and', index?: number, id = createViewId('filter-group')): FilterGroup {
+    const next = cloneFilterGroup(group);
+    const insertAt = index === undefined ? next.children.length : Math.max(0, Math.min(index, next.children.length));
+    next.children.splice(insertAt, 0, createEmptyFilterGroup(mode, id));
+    return next;
+}
+
+export function updateFilterGroupMode(group: FilterGroup, groupId: string, mode: FilterMode): FilterGroup {
+    const next = cloneFilterGroup(group);
+    const target = findFilterGroup(next, groupId);
+    if (!target) throw new Error(`Filter group not found: ${groupId}`);
+    target.mode = mode;
+    return next;
+}
+
+export function removeFilterNode(group: FilterGroup, nodeId: string): FilterGroup {
+    if (group.id === nodeId) throw new Error('Cannot remove the root filter group');
+    const next = cloneFilterGroup(group);
+    if (!removeFilterNodeInPlace(next, nodeId)) throw new Error(`Filter node not found: ${nodeId}`);
+    return next;
+}
+
+function findFilterGroup(group: FilterGroup, id: string): FilterGroup | undefined {
+    if (group.id === id) return group;
+    for (const child of group.children) {
+        if (!isFilterGroup(child)) continue;
+        const found = findFilterGroup(child, id);
+        if (found) return found;
+    }
+    return undefined;
+}
+
+function removeFilterNodeInPlace(group: FilterGroup, nodeId: string): boolean {
+    const index = group.children.findIndex((child) => child.id === nodeId);
+    if (index !== -1) {
+        group.children.splice(index, 1);
+        return true;
+    }
+    for (const child of group.children) {
+        if (isFilterGroup(child) && removeFilterNodeInPlace(child, nodeId)) return true;
+    }
+    return false;
+}
+
 export function addSavedView(state: UnifiedLibraryViewState, name: string, id = createViewId('view')): UnifiedLibraryViewState {
     const trimmedName = name.trim();
     if (!trimmedName) throw new Error('Saved view name cannot be empty');

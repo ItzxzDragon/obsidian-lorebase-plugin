@@ -6,6 +6,7 @@ import {
     cloneUnifiedViewState,
     createEmptyFilterGroup,
     fromLegacyViewState,
+    matchesFilterGroup,
     removeFilterNode,
     updateFilterGroupMode,
 } from './unifiedViewState';
@@ -84,6 +85,26 @@ describe('unified custom library view state', () => {
         const removed = removeFilterNode(updated, 'r1');
         expect((removed.children[0] as typeof nested).children).toEqual([]);
         expect((updated.children[0] as typeof nested).children).toHaveLength(1);
+    });
+
+    it('evaluates nested groups with the same rule matcher', () => {
+        const root = createEmptyFilterGroup('and', 'root');
+        const nested = createEmptyFilterGroup('or', 'nested');
+        const rules: Record<string, boolean> = { r1: false, r2: true, r3: false };
+        nested.children.push(
+            { id: 'r1', field: 'status', fieldType: 'text', operator: 'equals', value: 'active' },
+            { id: 'r2', field: 'favorite', fieldType: 'boolean', operator: 'isTrue' },
+        );
+        root.children.push(nested, {
+            id: 'r3', field: 'status', fieldType: 'text', operator: 'equals', value: 'completed',
+        });
+
+        expect(matchesFilterGroup(root, (rule) => rules[rule.id])).toBe(false);
+        expect(matchesFilterGroup(nested, (rule) => rules[rule.id])).toBe(true);
+
+        const none = createEmptyFilterGroup('none', 'none');
+        none.children.push({ id: 'r3', field: 'status', fieldType: 'text', operator: 'equals', value: 'completed' });
+        expect(matchesFilterGroup(none, () => false)).toBe(true);
     });
 
     it('does not allow removing the root group', () => {

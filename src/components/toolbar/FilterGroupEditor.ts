@@ -2,9 +2,9 @@ import { setIcon } from 'obsidian';
 import type { FilterRule } from '../../types';
 import {
     FilterGroup,
-    FilterNode,
     addFilterGroup,
     addFilterRule,
+    cloneFilterGroup,
     createViewId,
     isFilterGroup,
     removeFilterNode,
@@ -28,13 +28,18 @@ export interface FilterGroupEditorOptions {
 
 /**
  * Reusable editor for the hierarchical filter tree used by unified library views.
- * The editor owns only tree interaction; rule creation/value editing stays with the
- * host View/Toolbar implementation.
+ * Rule creation/value editing remains owned by the host View/Toolbar.
  */
 export class FilterGroupEditor {
     private readonly parent: HTMLElement;
     private readonly callbacks: FilterGroupEditorCallbacks;
-    private readonly labels: Required<FilterGroupEditorOptions>['labels'];
+    private readonly labels: {
+        and: string;
+        or: string;
+        addRule: string;
+        addGroup: string;
+        remove: string;
+    };
 
     constructor(parent: HTMLElement, callbacks: FilterGroupEditorCallbacks, options: FilterGroupEditorOptions = {}) {
         this.parent = parent;
@@ -51,10 +56,10 @@ export class FilterGroupEditor {
 
     render(group: FilterGroup): void {
         this.parent.empty();
-        this.renderGroup(this.parent, group, true);
+        this.renderGroup(this.parent, group, true, group);
     }
 
-    private renderGroup(parent: HTMLElement, group: FilterGroup, root: boolean): void {
+    private renderGroup(parent: HTMLElement, group: FilterGroup, root: boolean, rootGroup: FilterGroup): void {
         const section = parent.createDiv({
             cls: `lorebase-filter-group ${root ? 'is-root' : 'is-nested'}`,
         });
@@ -62,7 +67,7 @@ export class FilterGroupEditor {
 
         const header = section.createDiv({ cls: 'lorebase-filter-group-header' });
         const mode = header.createDiv({ cls: 'lorebase-filter-group-mode' });
-        for (const [value, label] of [['and', this.labels.and], ['or', this.labels.or] ] as const) {
+        for (const [value, label] of [['and', this.labels.and], ['or', this.labels.or]] as const) {
             const button = mode.createEl('button', {
                 cls: `lorebase-filter-group-mode-button ${group.mode === value ? 'is-active' : ''}`,
                 text: label,
@@ -70,7 +75,7 @@ export class FilterGroupEditor {
             });
             button.addEventListener('click', () => {
                 if (group.mode === value) return;
-                this.callbacks.onChange(updateFilterGroupMode(group, group.id, value));
+                this.callbacks.onChange(replaceGroup(rootGroup, updateFilterGroupMode(group, group.id, value)));
             });
         }
 
@@ -81,17 +86,14 @@ export class FilterGroupEditor {
             });
             setIcon(remove, 'x');
             remove.addEventListener('click', () => {
-                this.callbacks.onChange(removeFilterNode(group, group.id));
+                this.callbacks.onChange(removeFilterNode(rootGroup, group.id));
             });
         }
 
         const children = section.createDiv({ cls: 'lorebase-filter-group-children' });
         for (const child of group.children) {
-            if (isFilterGroup(child)) {
-                this.renderGroup(children, child, false);
-            } else {
-                this.renderRulePlaceholder(children, child, group);
-            }
+            if (isFilterGroup(child)) this.renderGroup(children, child, false, rootGroup);
+            else this.renderRulePlaceholder(children, child, group, rootGroup);
         }
 
         const actions = section.createDiv({ cls: 'lorebase-filter-group-actions' });
@@ -103,7 +105,7 @@ export class FilterGroupEditor {
         addRule.addEventListener('click', () => {
             const rule = this.callbacks.onAddRule(group);
             if (!rule) return;
-            this.callbacks.onChange(addFilterRule(group, rule));
+            this.callbacks.onChange(replaceGroup(rootGroup, addFilterRule(group, rule)));
         });
 
         const addGroup = actions.createEl('button', {
@@ -112,11 +114,11 @@ export class FilterGroupEditor {
             attr: { type: 'button' },
         });
         addGroup.addEventListener('click', () => {
-            this.callbacks.onChange(addFilterGroup(group, 'and', undefined, createViewId('filter-group')));
+            this.callbacks.onChange(replaceGroup(rootGroup, addFilterGroup(group, 'and', undefined, createViewId('filter-group'))));
         });
     }
 
-    private renderRulePlaceholder(parent: HTMLElement, rule: FilterRule, group: FilterGroup): void {
+    private renderRulePlaceholder(parent: HTMLElement, rule: FilterRule, group: FilterGroup, rootGroup: FilterGroup): void {
         const row = parent.createDiv({ cls: 'lorebase-filter-rule' });
         row.dataset.ruleId = rule.id;
         row.createSpan({ cls: 'lorebase-filter-rule-label', text: rule.field });
@@ -126,7 +128,27 @@ export class FilterGroupEditor {
         });
         setIcon(remove, 'x');
         remove.addEventListener('click', () => {
-            this.callbacks.onChange(removeFilterNode(group, rule.id));
+            this.callbacks.onChange(removeFilterNode(rootGroup, rule.id));
         });
     }
+}
+
+function replaceGroup(root: FilterGroup, replacement: FilterGroup): FilterGroup {
+    if (root.id === replacement.id) return cloneFilterGroup(replacement);
+    const next = cloneFilterGroup(root);
+    if (!replaceGroupInPlace(next, replacement)) throw new Error(`Filter group not found: ${replacement.id}`);
+    return next;
+}
+
+function replaceGroupInPlace(parent: FilterGroup, replacement: FilterGroup): boolean {
+    for (let index = 0; index < parent.children.length; index++) {
+        const child = parent.children[index];
+        if (!isFilterGroup(child)) continue;
+        if (child.id === replacement.id) {
+            parent.children[index] = cloneFilterGroup(replacement);
+            return true;
+        }
+        if (replaceGroupInPlace(child, replacement)) return true;
+    }
+    return false;
 }

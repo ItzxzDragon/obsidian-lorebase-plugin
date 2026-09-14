@@ -19,7 +19,8 @@ function isCustomLibrary(d:LibraryDefinition):d is PersistedLibraryDefinition{re
 function normalizeCustomLibrary(value:unknown):PersistedLibraryDefinition|null{
     if(!isRecord(value)||value.kind!=='custom')return null;
     const id=typeof value.id==='string'?value.id.trim():'';const name=typeof value.name==='string'?value.name.trim():'';const icon=typeof value.icon==='string'&&value.icon.trim()?value.icon.trim():'library';
-    const source=isRecord(value.source);const folder=source&&source.kind==='folder'&&typeof value.source.folder==='string'?value.source.folder.trim():'';if(!id||!name||!folder)return null;
+    const source = isRecord(value.source) ? value.source : null;
+    const folder=source?.kind==='folder'&&typeof source.folder==='string'?source.folder.trim():'';if(!id||!name||!folder)return null;
     const schema=isRecord(value.schema)?value.schema:{};const fields=Array.isArray(schema.fields)?schema.fields.map(normalizeField).filter((f):f is FieldDefinition=>f!==null):[];
     const sorts=normalizeSorts(value.sorts);const filterGroup=normalizeFilterGroup(value.filterGroup);const groupProperty=typeof value.groupProperty==='string'?value.groupProperty.trim():'';const groupDirection=value.groupDirection==='desc'?'desc':'asc';
     const entryFields=normalizeEntryFields(value.entryFields??fields.map(field=>({property:field.id.replace(/^yaml:/,''),type:field.type})));

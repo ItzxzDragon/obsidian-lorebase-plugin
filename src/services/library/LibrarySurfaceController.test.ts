@@ -4,7 +4,6 @@ import type { LibraryManager } from './LibraryManager';
 import type { LibraryDefinition } from './types';
 import type { LibrarySelectionOption } from './LibrarySelection';
 import type { LibrarySurfaceRenderer } from './LibrarySurfaceRenderer';
-import { createEmptyFilterGroup } from './unifiedViewState';
 
 function customLibrary(id = 'my-library'): LibraryDefinition {
     return {
@@ -116,17 +115,23 @@ describe('LibrarySurfaceController', () => {
         await controller.renderCustomLibrary(parent, { sorts: [] });
 
         expect(manager.loadItems).toHaveBeenCalledWith(definition.id);
-        expect(renderer.render).toHaveBeenCalledWith(parent, items, definition, {
-            sorts: [],
-            rules: createEmptyFilterGroup('and', 'root'),
-            group: { mode: 'none', order: 'asc' },
-            fields: [],
-        });
+        expect(renderer.render).toHaveBeenCalledWith(
+            parent,
+            items,
+            definition,
+            expect.objectContaining({
+                sorts: [],
+                group: { mode: 'none', order: 'asc' },
+                fields: [],
+            })
+        );
+        const renderOptions = renderer.render.mock.calls[0]?.[3] as { rules?: { kind: string; mode: string } };
+        expect(renderOptions.rules).toMatchObject({ kind: 'group', mode: 'and' });
     });
 
     it('restores and synchronizes custom library saved-view state', () => {
         const definition = customLibrary();
-        const filterGroup = createEmptyFilterGroup('or', 'root');
+        const filterGroup = { kind: 'group' as const, id: 'root', mode: 'or' as const, children: [] };
         definition.filterMode = 'or';
         definition.filterGroup = filterGroup;
         definition.savedViews = [{

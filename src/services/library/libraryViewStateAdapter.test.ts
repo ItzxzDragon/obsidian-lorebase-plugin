@@ -15,7 +15,7 @@ function definition(): LibraryDefinition {
     };
 }
 
-function state(): LibraryViewState {
+function state(filterGroup?: NonNullable<LibraryViewState['filterGroup']>): LibraryViewState {
     return {
         sort: { field: 'yaml:rating', order: 'desc' },
         group: { mode: 'field', order: 'asc', field: 'yaml:status' },
@@ -26,30 +26,49 @@ function state(): LibraryViewState {
             operator: 'equals',
             value: 'Done',
         }],
+        ...(filterGroup ? { filterGroup } : {}),
         tags: [],
         genres: [],
     };
 }
 
 describe('libraryViewStateAdapter', () => {
-    it('maps the existing view state into the shared pipeline', () => {
+    it('maps legacy flat rules into the root filter group', () => {
         const pipeline = toLibraryPipelineState(state(), definition());
 
         expect(pipeline.sorts).toEqual([{ field: 'yaml:rating', order: 'desc' }]);
         expect(pipeline.group).toEqual({ mode: 'field', order: 'asc', field: 'yaml:status' });
-        expect(pipeline.filters).toEqual(state().rules);
+        expect(pipeline.filters).toMatchObject({ kind: 'group', mode: 'and' });
+        expect(pipeline.filters.children).toEqual(state().rules);
     });
 
-    it('preserves current state when the pipeline has no explicit sort', () => {
-        const current = state();
-        const next = pipelineStateToLibraryViewState(current, {
-            sorts: [],
-            group: { mode: 'none', order: 'asc' },
-            filters: [],
-        });
+    it('preserves nested filter groups through the adapter round trip', () => {
+        const filterGroup = {
+            kind: 'group' as const,
+            id: 'root',
+            mode: 'and' as const,
+            children: [
+                {
+                    kind: 'group' as const,
+                    id: 'nested',
+                    mode: 'or' as const,
+                    children: [
+                        { id: 'rule-a', field: 'genre', operator: 'equals', value: 'A', fieldType: 'text' },
+                        { id: 'rule-b', field: 'genre', operator: 'equals', value: 'B', fieldType: 'text' },
+                    ],
+                },
+            ],
+        };
+        const current = state(filterGroup);
+        const pipeline = toLibraryPipelineState(current, definition());
+        const next = pipelineStateToLibraryViewState(current, pipeline);
 
-        expect(next.sort).toEqual(current.sort);
-        expect(next.group).toEqual({ mode: 'none', order: 'asc' });
-        expect(next.rules).toEqual([]);
+        expect(next.filterGroup).toEqual(filterGroup);
+        expect(next.rules).toEqual(current.rules);
+        expect(next.filterGroup?.children[0]).toMatchObject({
+            kind: 'group',
+            id: 'nested',
+            mode: 'or',
+        });
     });
 });

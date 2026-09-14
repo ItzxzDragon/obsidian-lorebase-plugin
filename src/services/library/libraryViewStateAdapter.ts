@@ -1,6 +1,6 @@
 import type { FieldDefinition, FilterRule, GroupSpec, LibraryViewState, SortSpec } from '../../types';
 import type { LibraryDefinition } from './types';
-import { emptyFilterGroup, type FilterGroup } from './unifiedViewState';
+import { createEmptyFilterGroup, type FilterGroup } from './unifiedViewState';
 
 export interface LibraryPipelineState {
     filters: FilterRule[] | FilterGroup;
@@ -15,9 +15,11 @@ export function toLibraryPipelineState(
     definition: LibraryDefinition,
 ): LibraryPipelineState {
     const fields = definition.schema.fields;
-    const filters = state.rules.length > 0
-        ? state.rules.map((rule) => ({ ...rule }))
-        : emptyFilterGroup('and');
+    const filters = state.filterGroup
+        ? cloneFilterGroup(state.filterGroup)
+        : state.rules.length > 0
+            ? state.rules.map((rule) => ({ ...rule }))
+            : createEmptyFilterGroup('and', 'root');
 
     const sorts: SortSpec[] = state.sort.field
         ? [{ field: state.sort.field, order: state.sort.order }]
@@ -36,7 +38,9 @@ export function pipelineStateToLibraryViewState(
     pipeline: Pick<LibraryPipelineState, 'sorts' | 'group' | 'filters'>,
 ): LibraryViewState {
     const firstSort = pipeline.sorts[0];
-    const rules = Array.isArray(pipeline.filters) ? pipeline.filters : [];
+    const filterGroup = Array.isArray(pipeline.filters)
+        ? createFilterGroupFromRules(pipeline.filters)
+        : cloneFilterGroup(pipeline.filters);
 
     return {
         ...current,
@@ -44,6 +48,36 @@ export function pipelineStateToLibraryViewState(
             ? { field: firstSort.field, order: firstSort.order }
             : current.sort,
         group: { ...pipeline.group },
-        rules: rules.map((rule) => ({ ...rule })),
+        rules: flattenFilterRules(filterGroup),
+        filterGroup,
     };
+}
+
+function cloneFilterGroup(group: FilterGroup): FilterGroup {
+    return {
+        kind: 'group',
+        id: group.id,
+        mode: group.mode,
+        children: group.children.map((child) => child.kind === 'group'
+            ? cloneFilterGroup(child)
+            : { ...child, value: Array.isArray(child.value) ? [...child.value] : child.value }),
+    };
+}
+
+function createFilterGroupFromRules(rules: FilterRule[]): FilterGroup {
+    const group = createEmptyFilterGroup('and', 'root');
+    group.children = rules.map((rule) => ({
+        ...rule,
+        value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
+    }));
+    return group;
+}
+
+function flattenFilterRules(group: FilterGroup): FilterRule[] {
+    const rules: FilterRule[] = [];
+    for (const child of group.children) {
+        if (child.kind === 'group') rules.push(...flattenFilterRules(child));
+        else rules.push({ ...child, value: Array.isArray(child.value) ? [...child.value] : child.value });
+    }
+    return rules;
 }

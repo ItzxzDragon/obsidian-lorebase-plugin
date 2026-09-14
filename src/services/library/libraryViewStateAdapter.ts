@@ -1,9 +1,10 @@
-import type { FieldDefinition, FilterRule, GroupSpec, LibraryViewState, SortSpec } from '../../types';
+import type { FieldDefinition, LibraryViewState, GroupSpec, SortSpec } from '../../types';
 import type { LibraryDefinition } from './types';
-import { createEmptyFilterGroup, type FilterGroup } from './unifiedViewState';
+import { cloneFilterGroup, createEmptyFilterGroup, type FilterGroup } from './unifiedViewState';
 
 export interface LibraryPipelineState {
-    filters: FilterRule[] | FilterGroup;
+    /** Canonical hierarchical filter state. Never flatten nested groups here. */
+    filters: FilterGroup;
     sorts: SortSpec[];
     group: GroupSpec;
     fields: FieldDefinition[];
@@ -17,9 +18,7 @@ export function toLibraryPipelineState(
     const fields = definition.schema.fields;
     const filters = state.filterGroup
         ? cloneFilterGroup(state.filterGroup)
-        : state.rules.length > 0
-            ? state.rules.map((rule) => ({ ...rule }))
-            : createEmptyFilterGroup('and', 'root');
+        : createFilterGroupFromLegacyRules(state.rules);
 
     const sorts: SortSpec[] = state.sort.field
         ? [{ field: state.sort.field, order: state.sort.order }]
@@ -38,9 +37,7 @@ export function pipelineStateToLibraryViewState(
     pipeline: Pick<LibraryPipelineState, 'sorts' | 'group' | 'filters'>,
 ): LibraryViewState {
     const firstSort = pipeline.sorts[0];
-    const filterGroup = Array.isArray(pipeline.filters)
-        ? createFilterGroupFromRules(pipeline.filters)
-        : cloneFilterGroup(pipeline.filters);
+    const filterGroup = cloneFilterGroup(pipeline.filters);
 
     return {
         ...current,
@@ -48,36 +45,17 @@ export function pipelineStateToLibraryViewState(
             ? { field: firstSort.field, order: firstSort.order }
             : current.sort,
         group: { ...pipeline.group },
-        rules: flattenFilterRules(filterGroup),
+        // Keep the tree as the canonical filter representation. `rules` remains
+        // untouched so legacy consumers cannot destroy nested-group structure.
         filterGroup,
     };
 }
 
-function cloneFilterGroup(group: FilterGroup): FilterGroup {
-    return {
-        kind: 'group',
-        id: group.id,
-        mode: group.mode,
-        children: group.children.map((child) => child.kind === 'group'
-            ? cloneFilterGroup(child)
-            : { ...child, value: Array.isArray(child.value) ? [...child.value] : child.value }),
-    };
-}
-
-function createFilterGroupFromRules(rules: FilterRule[]): FilterGroup {
+function createFilterGroupFromLegacyRules(rules: LibraryViewState['rules']): FilterGroup {
     const group = createEmptyFilterGroup('and', 'root');
     group.children = rules.map((rule) => ({
         ...rule,
         value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
     }));
     return group;
-}
-
-function flattenFilterRules(group: FilterGroup): FilterRule[] {
-    const rules: FilterRule[] = [];
-    for (const child of group.children) {
-        if (child.kind === 'group') rules.push(...flattenFilterRules(child));
-        else rules.push({ ...child, value: Array.isArray(child.value) ? [...child.value] : child.value });
-    }
-    return rules;
 }

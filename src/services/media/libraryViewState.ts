@@ -11,6 +11,7 @@ import {
     SortField,
     SortOrder,
 } from '../../types';
+import { cloneFilterGroup, createEmptyFilterGroup, isFilterGroup } from '../library/unifiedViewState';
 
 type SimpleFieldValue = string | number | boolean | string[] | null;
 
@@ -56,6 +57,7 @@ export function cloneLibraryViewState(state: LibraryViewState): LibraryViewState
             ...rule,
             value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
         })),
+        filterGroup: state.filterGroup ? cloneFilterGroup(state.filterGroup) : undefined,
         tags: [...state.tags],
         genres: [...state.genres],
     };
@@ -66,6 +68,8 @@ export function normalizeLibraryViewState(raw: unknown, fallback: LibraryViewSta
     if (!record) return cloneLibraryViewState(fallback);
     const sort = asRecord(record.sort);
     const group = asRecord(record.group);
+    const legacyRules = normalizeRules(record.rules);
+    const filterGroup = normalizeFilterGroup(record.filterGroup, legacyRules, fallback.filterGroup);
     return {
         sort: {
             field: normalizeSortField(sort?.field ?? record.sortField, fallback.sort.field),
@@ -75,7 +79,8 @@ export function normalizeLibraryViewState(raw: unknown, fallback: LibraryViewSta
             mode: normalizeGroupMode(group?.mode, fallback.group.mode),
             order: normalizeOrder(group?.order, fallback.group.order),
         },
-        rules: normalizeRules(record.rules),
+        rules: legacyRules,
+        filterGroup,
         tags: normalizeStrings(record.tags),
         genres: normalizeStrings(record.genres),
     };
@@ -317,6 +322,43 @@ function normalizeRules(raw: unknown): FilterRule[] {
         rules.push({ id, field, fieldType, operator, value, valueTo: normalizeRuleScalar(record?.valueTo) });
     }
     return rules;
+}
+
+function normalizeFilterGroup(raw: unknown, legacyRules: FilterRule[], fallback: LibraryViewState['filterGroup']): LibraryViewState['filterGroup'] {
+    if (isFilterGroupRecord(raw)) return normalizeFilterGroupRecord(raw);
+    if (legacyRules.length > 0) {
+        const group = createEmptyFilterGroup('and', 'root');
+        group.children = legacyRules.map((rule) => ({
+            ...rule,
+            value: Array.isArray(rule.value) ? [...rule.value] : rule.value,
+        }));
+        return group;
+    }
+    return fallback ? cloneFilterGroup(fallback) : createEmptyFilterGroup('and', 'root');
+}
+
+function normalizeFilterGroupRecord(raw: Record<string, unknown>): LibraryViewState['filterGroup'] {
+    const mode = raw.mode === 'and' || raw.mode === 'or' || raw.mode === 'none' ? raw.mode : 'and';
+    const id = typeof raw.id === 'string' && raw.id.trim() ? raw.id : 'root';
+    const children: LibraryViewState['filterGroup']['children'] = [];
+    if (Array.isArray(raw.children)) {
+        for (const child of raw.children) {
+            const childRecord = asRecord(child);
+            if (!childRecord) continue;
+            if (isFilterGroupRecord(childRecord)) {
+                children.push(normalizeFilterGroupRecord(childRecord));
+                continue;
+            }
+            const rules = normalizeRules([childRecord]);
+            if (rules.length > 0) children.push(rules[0]);
+        }
+    }
+    return { kind: 'group', id, mode, children };
+}
+
+function isFilterGroupRecord(value: unknown): value is Record<string, unknown> {
+    const record = asRecord(value);
+    return record?.kind === 'group' && Array.isArray(record.children);
 }
 
 function normalizeSortField(value: unknown, fallback: SortField): SortField {

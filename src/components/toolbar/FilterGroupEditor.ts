@@ -49,9 +49,9 @@ export class FilterGroupEditor {
         this.parent = parent;
         this.callbacks = callbacks;
         this.labels = {
-            and: 'AND',
-            or: 'OR',
-            none: 'NONE',
+            and: 'All of the following are true',
+            or: 'Any of the following are true',
+            none: 'None of the following are true',
             addRule: 'Add filter',
             addGroup: 'Add filter group',
             remove: 'Remove',

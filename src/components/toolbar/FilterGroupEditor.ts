@@ -22,6 +22,7 @@ export interface FilterGroupEditorOptions {
     labels?: Partial<{
         and: string;
         or: string;
+        none: string;
         addRule: string;
         addGroup: string;
         remove: string;
@@ -38,6 +39,7 @@ export class FilterGroupEditor {
     private readonly labels: {
         and: string;
         or: string;
+        none: string;
         addRule: string;
         addGroup: string;
         remove: string;
@@ -49,6 +51,7 @@ export class FilterGroupEditor {
         this.labels = {
             and: 'AND',
             or: 'OR',
+            none: 'NONE',
             addRule: 'Add filter',
             addGroup: 'Add filter group',
             remove: 'Remove',
@@ -69,7 +72,11 @@ export class FilterGroupEditor {
 
         const header = section.createDiv({ cls: 'lorebase-filter-group-header' });
         const mode = header.createDiv({ cls: 'lorebase-filter-group-mode' });
-        for (const [value, label] of [['and', this.labels.and], ['or', this.labels.or]] as const) {
+        for (const [value, label] of [
+            ['and', this.labels.and],
+            ['or', this.labels.or],
+            ['none', this.labels.none],
+        ] as const) {
             const button = mode.createEl('button', {
                 cls: `lorebase-filter-group-mode-button ${group.mode === value ? 'is-active' : ''}`,
                 text: label,

@@ -1249,7 +1249,7 @@ export class LibraryView extends ItemView {
         }
 
         if (left.type === 'manga' && right.type === 'manga') {
-            return left.summary === right.summary
+            return left.description === right.description
                 && left.sourceUrl === right.sourceUrl
                 && left.chapterCurrent === right.chapterCurrent
                 && left.chapterTotal === right.chapterTotal

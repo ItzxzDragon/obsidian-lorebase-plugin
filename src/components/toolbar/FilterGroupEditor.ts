@@ -1,7 +1,6 @@
 import { setIcon } from 'obsidian';
 import type { FilterRule } from '../../types';
 import {
-    FilterGroup,
     addFilterGroup,
     addFilterRule,
     cloneFilterGroup,
@@ -10,6 +9,7 @@ import {
     removeFilterNode,
     updateFilterGroupMode,
 } from '../../services/library/unifiedViewState';
+import type { FilterGroup } from '../../services/library/unifiedViewState';
 
 export interface FilterGroupEditorCallbacks {
     onChange: (group: FilterGroup) => void;

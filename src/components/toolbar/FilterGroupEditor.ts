@@ -72,21 +72,24 @@ export class FilterGroupEditor {
 
         const header = section.createDiv({ cls: 'lorebase-filter-group-header' });
         const mode = header.createDiv({ cls: 'lorebase-filter-group-mode' });
-        for (const [value, label] of [
+        const modeSelect = mode.createEl('select', {
+            cls: 'lorebase-filter-group-mode-select',
+            attr: { 'aria-label': 'Filter group mode' },
+        });
+        const modeOptions = [
             ['and', this.labels.and],
             ['or', this.labels.or],
             ['none', this.labels.none],
-        ] as const) {
-            const button = mode.createEl('button', {
-                cls: `lorebase-filter-group-mode-button ${group.mode === value ? 'is-active' : ''}`,
-                text: label,
-                attr: { type: 'button', 'aria-pressed': String(group.mode === value) },
-            });
-            button.addEventListener('click', () => {
-                if (group.mode === value) return;
-                this.callbacks.onChange(replaceGroup(rootGroup, updateFilterGroupMode(group, group.id, value)));
-            });
+        ] as const;
+        for (const [value, label] of modeOptions) {
+            modeSelect.createEl('option', { value, text: label });
         }
+        modeSelect.value = group.mode;
+        modeSelect.addEventListener('change', () => {
+            const value = modeSelect.value as FilterGroup['mode'];
+            if (value === group.mode) return;
+            this.callbacks.onChange(replaceGroup(rootGroup, updateFilterGroupMode(group, group.id, value)));
+        });
 
         if (!root) {
             const remove = header.createEl('button', {

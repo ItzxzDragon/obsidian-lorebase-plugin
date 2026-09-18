@@ -765,6 +765,95 @@
     place-items: center;
 }
 
+
+/* Hierarchical filter groups in the native View & filters surface. */
+.lorebase-filter-group {
+    display: grid;
+    gap: 8px;
+    min-width: 0;
+}
+.lorebase-filter-group.is-nested {
+    margin-top: 2px;
+    padding: 9px;
+    border: 1px solid color-mix(in srgb, var(--background-modifier-border) 78%, transparent);
+    border-radius: 9px;
+    background: color-mix(in srgb, var(--background-secondary) 35%, transparent);
+}
+.lorebase-filter-group-header {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+}
+.lorebase-filter-group-mode {
+    flex: 1 1 auto;
+    min-width: 0;
+}
+.lorebase-filter-group-mode-select {
+    width: 100%;
+    min-width: 0;
+    height: 32px;
+    padding: 4px 30px 4px 9px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 7px;
+    background: var(--background-primary);
+    color: var(--lorebase-text-normal);
+    font-size: 12px;
+}
+.lorebase-filter-group-remove {
+    display: inline-grid;
+    place-items: center;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    padding: 0;
+    border: 1px solid transparent;
+    border-radius: 7px;
+    background: transparent;
+    color: var(--lorebase-text-muted);
+    cursor: pointer;
+}
+.lorebase-filter-group-remove:hover {
+    border-color: var(--background-modifier-border);
+    color: var(--text-error);
+    background: var(--background-modifier-hover);
+}
+.lorebase-filter-group-remove svg {
+    width: 15px;
+    height: 15px;
+}
+.lorebase-filter-group-children {
+    display: grid;
+    gap: 7px;
+    min-width: 0;
+}
+.lorebase-filter-group-actions {
+    display: flex;
+    align-items: center;
+    gap: 7px;
+    flex-wrap: wrap;
+}
+.lorebase-filter-group-add-rule,
+.lorebase-filter-group-add-group {
+    min-height: 30px;
+    padding: 0 10px;
+    border: 1px solid var(--background-modifier-border);
+    border-radius: 7px;
+    background: transparent;
+    color: var(--lorebase-text-normal);
+    font-size: 11px;
+    cursor: pointer;
+}
+.lorebase-filter-group-add-rule {
+    color: var(--lorebase-accent);
+}
+.lorebase-filter-group-add-rule:hover,
+.lorebase-filter-group-add-group:hover {
+    border-color: var(--lorebase-accent);
+    color: var(--lorebase-accent);
+    background: color-mix(in srgb, var(--lorebase-accent) 8%, transparent);
+}
+
 @media (max-width: 768px) {
     .lorebase-view-panel {
         position: fixed;

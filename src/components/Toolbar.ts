@@ -23,6 +23,8 @@ import { hasActiveTagFilters } from './toolbar/stateUtils';
 import { TagGroups, TagSummary, ToolbarCallbacks } from './toolbar/types';
 import { cloneLibraryViewState, createRuleId, libraryViewStatesEqual } from '../services/media/libraryViewState';
 import { createLorebaseDropdown, LorebaseDropdownOption } from './LorebaseDropdown';
+import { FilterGroupEditor } from './toolbar/FilterGroupEditor';
+import { cloneFilterGroup, countFilterRules, createEmptyFilterGroup, removeFilterNode } from '../services/library/unifiedViewState';
 
 export type { ToolbarCallbacks } from './toolbar/types';
 
@@ -202,7 +204,7 @@ export class Toolbar {
         panel.addClass('lorebase-view-panel');
         panel.setAttribute('role', 'dialog');
         panel.setAttribute('aria-label', copy.configure);
-        const count = this.currentViewState.rules.length;
+        const count = countFilterRules(this.getCurrentFilterGroup());
         button.toggleClass('is-active', this.hasCustomizedView());
         this.addMobileButtonLabel(button, copy.configure, count);
         if (count > 0) {
@@ -297,8 +299,7 @@ export class Toolbar {
         panel.empty();
 
         const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });
-        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });
-        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
+        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
         const activeSaved = this.savedViews.find((view) => view.id === this.activeSavedViewId);
         const dirty = Boolean(activeSaved && !libraryViewStatesEqual(activeSaved.state, this.currentViewState));
         titleWrap.createDiv({
@@ -397,56 +398,69 @@ export class Toolbar {
 
         const filters = panel.createDiv({ cls: 'lorebase-view-filters' });
         const filtersHeader = filters.createDiv({ cls: 'lorebase-view-section-header' });
+        const filterGroup = this.getCurrentFilterGroup();
         filtersHeader.createSpan({ text: copy.filters });
-        filtersHeader.createSpan({ cls: 'lorebase-view-section-count', text: String(this.currentViewState.rules.length) });
+        filtersHeader.createSpan({ cls: 'lorebase-view-section-count', text: String(countFilterRules(filterGroup)) });
 
         const ruleList = filters.createDiv({ cls: 'lorebase-view-rule-list' });
-        if (this.currentViewState.rules.length === 0) {
-            ruleList.createDiv({ cls: 'lorebase-view-empty', text: copy.noFilters });
-        } else {
-            for (const rule of this.currentViewState.rules) {
-                this.renderRuleEditor(ruleList, rule, panel, button);
-            }
-        }
+        new FilterGroupEditor(ruleList, {
+            onChange: (group) => {
+                this.currentViewState.filterGroup = cloneFilterGroup(group);
+                this.emitViewState(button);
+                this.renderViewPanel(panel, button);
+            },
+            onAddRule: (_group, fieldId) => this.createFilterRule(fieldId),
+            onRenderRule: (parent, rule, group) => this.renderRuleEditor(parent, rule, panel, button, group),
+            onRenderAddRule: (parent, group, addRule) => this.renderFilterPicker(parent, group, addRule, button, panel),
+        }, {
+            labels: {
+                and: 'All of the following are true',
+                or: 'Any of the following are true',
+                none: 'None of the following are true',
+                addRule: copy.addFilter,
+                addGroup: 'Add filter group',
+                remove: copy.remove,
+            },
+        }).render(filterGroup);
 
-        const addRow = filters.createDiv({ cls: 'lorebase-view-add-row' });
-        const addDropdown = addRow.createDiv({ cls: 'lorebase-view-dropdown is-filter-picker' });
-        const primaryFilterIds = new Set([
-            'status', 'series', 'favorite', 'year', 'rating', 'dateStarted', 'dateFinished',
-        ]);
+    }
+
+    private getCurrentFilterGroup() {
+        if (this.currentViewState.filterGroup) return cloneFilterGroup(this.currentViewState.filterGroup);
+        return createEmptyFilterGroup('and', 'root');
+    }
+
+    private createFilterRule(fieldId?: string): FilterRule | undefined {
+        const definition = fieldId ? this.fieldDefinitions.find((field) => field.id === fieldId) : undefined;
+        if (!definition) return undefined;
+        return {
+            id: createRuleId(),
+            field: definition.id,
+            fieldType: definition.type,
+            operator: definition.operators[0],
+            value: definition.type === 'list' ? [] : '',
+        };
+    }
+
+    private renderFilterPicker(parent: HTMLElement, _group: import('../services/library/unifiedViewState').FilterGroup, addRule: (fieldId?: string) => void, button: HTMLButtonElement, panel: HTMLElement): void {
+        const copy = this.viewText();
+        const addDropdown = parent.createDiv({ cls: 'lorebase-view-dropdown is-filter-picker' });
+        const primaryFilterIds = new Set(['status', 'series', 'favorite', 'year', 'rating', 'dateStarted', 'dateFinished']);
         const filterOptions: LorebaseDropdownOption<string>[] = [
             { value: '', label: `＋ ${copy.addFilter}` },
             ...this.fieldDefinitions.map((field) => ({
                 value: field.id,
                 label: field.label,
-                group: field.source === 'yaml'
-                    ? copy.noteFields
-                    : primaryFilterIds.has(field.id)
-                        ? copy.builtIn
-                        : copy.additional,
+                group: field.source === 'yaml' ? copy.noteFields : primaryFilterIds.has(field.id) ? copy.builtIn : copy.additional,
                 advanced: field.source === 'yaml' || !primaryFilterIds.has(field.id),
             })),
         ];
-        createLorebaseDropdown(
-            addDropdown,
-            filterOptions,
-            '',
-            (value) => {
-                const definition = this.fieldDefinitions.find((field) => field.id === value);
-                if (!definition) return;
-                const rule: FilterRule = {
-                    id: createRuleId(),
-                    field: definition.id,
-                    fieldType: definition.type,
-                    operator: definition.operators[0],
-                    value: definition.type === 'list' ? [] : '',
-                };
-                this.currentViewState.rules.push(rule);
-                this.emitViewState(button);
-                this.renderViewPanel(panel, button);
-            },
-            { showMoreLabel: copy.showMore, showLessLabel: copy.showLess, floating: true }
-        );
+        createLorebaseDropdown(addDropdown, filterOptions, '', (value) => {
+            if (!value) return;
+            addRule(value);
+            this.emitViewState(button);
+            this.renderViewPanel(panel, button);
+        }, { showMoreLabel: copy.showMore, showLessLabel: copy.showLess, floating: true });
     }
 
     private renderSortRow(parent: HTMLElement, button: HTMLButtonElement): void {
@@ -534,7 +548,8 @@ export class Toolbar {
         parent: HTMLElement,
         rule: FilterRule,
         panel: HTMLElement,
-        button: HTMLButtonElement
+        button: HTMLButtonElement,
+        group?: import('../services/library/unifiedViewState').FilterGroup
     ): void {
         const copy = this.viewText();
         const definition = this.fieldDefinitions.find((field) => field.id === rule.field);
@@ -552,7 +567,11 @@ export class Toolbar {
         });
         setIcon(remove, 'x');
         remove.addEventListener('click', () => {
-            this.currentViewState.rules = this.currentViewState.rules.filter((entry) => entry.id !== rule.id);
+            if (group && this.currentViewState.filterGroup) {
+                this.currentViewState.filterGroup = removeFilterNode(this.currentViewState.filterGroup, rule.id);
+            } else {
+                this.currentViewState.rules = this.currentViewState.rules.filter((entry) => entry.id !== rule.id);
+            }
             this.emitViewState(button);
             this.renderViewPanel(panel, button);
         });
@@ -597,8 +616,7 @@ export class Toolbar {
                     else selected.add(option.value);
                     rule.value = Array.from(selected);
                     chip.toggleClass('is-active', selected.has(option.value));
-                    chip.setAttribute('aria-pressed', String(selected.has(option.value)));
-                    this.emitViewState(button);
+                    chip.setAttribute('aria-pressed', String(selected.has(option.value)));                    this.emitViewState(button);
                 });
             }
             return;
@@ -897,8 +915,7 @@ export class Toolbar {
 
     private renderViewModeControl(parent: HTMLElement): void {
         const { button, panel } = this.createDropdown(parent, {
-            icon: 'layout-grid',
-            label: t('view'),
+            icon: 'layout-grid',            label: t('view'),
             align: 'right',
         });
 
@@ -1080,6 +1097,3 @@ export class Toolbar {
 
         if (this.container && this.container.parentElement) {
             this.container.remove();
-        }
-    }
-}

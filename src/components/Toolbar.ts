@@ -297,8 +297,7 @@ export class Toolbar {
     private renderViewPanel(panel: HTMLElement, button: HTMLButtonElement): void {
         const copy = this.viewText();
         panel.empty();
-        const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
-        const activeSaved = this.savedViews.find((view) => view.id === this.activeSavedViewId);
+        const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });        const activeSaved = this.savedViews.find((view) => view.id === this.activeSavedViewId);
         const dirty = Boolean(activeSaved && !libraryViewStatesEqual(activeSaved.state, this.currentViewState));
         titleWrap.createDiv({
             cls: `lorebase-view-panel-subtitle ${dirty ? 'is-dirty' : ''}`,
@@ -597,8 +596,7 @@ export class Toolbar {
     private renderRuleValue(
         parent: HTMLElement,
         rule: FilterRule,        definition: FieldDefinition | undefined,        button: HTMLButtonElement
-    ): void {
-        if (['empty', 'notEmpty', 'isTrue', 'isFalse', 'thisMonth', 'thisYear'].includes(rule.operator)) return;
+    ): void {        if (['empty', 'notEmpty', 'isTrue', 'isFalse', 'thisMonth', 'thisYear'].includes(rule.operator)) return;
 
         if (definition?.options?.length) {
             const chips = parent.createDiv({ cls: 'lorebase-view-option-chips' });
@@ -897,8 +895,7 @@ export class Toolbar {
                 type: 'button',
                 'aria-label': t('promptAddSelected'),            },
         });
-        setIcon(addBtn, 'plus');
-        addBtn.addEventListener('click', () => this.callbacks.onAdd());    }
+        setIcon(addBtn, 'plus');        addBtn.addEventListener('click', () => this.callbacks.onAdd());    }
 
     private renderRandomButton(parent: HTMLElement): void {
         const randomBtn = parent.createEl('button', {
@@ -1077,3 +1074,26 @@ export class Toolbar {
     /**
      * Refresh the toolbar (re-render for localization updates)
      */
+    refresh(): void {
+        this.render();
+    }
+
+    /**
+     * Destroy the toolbar
+     */
+    destroy(): void {
+        if (this.searchTimeout) {
+            window.clearTimeout(this.searchTimeout);
+            this.searchTimeout = null;
+        }
+
+        this.dropdownManager.destroy();
+        activeDocument.removeEventListener('keydown', this.mediaTrayKeyHandler);
+        this.resizeObserver?.disconnect();
+        this.resizeObserver = null;
+
+        if (this.container && this.container.parentElement) {
+            this.container.remove();
+        }
+    }
+}

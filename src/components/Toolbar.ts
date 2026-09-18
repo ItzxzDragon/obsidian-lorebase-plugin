@@ -297,7 +297,6 @@ export class Toolbar {
     private renderViewPanel(panel: HTMLElement, button: HTMLButtonElement): void {
         const copy = this.viewText();
         panel.empty();
-
         const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });
         const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
         const activeSaved = this.savedViews.find((view) => view.id === this.activeSavedViewId);
@@ -427,7 +426,10 @@ export class Toolbar {
 
     private getCurrentFilterGroup() {
         if (this.currentViewState.filterGroup) return cloneFilterGroup(this.currentViewState.filterGroup);
-        return createEmptyFilterGroup('and', 'root');
+        return {
+            ...createEmptyFilterGroup('and', 'root'),
+            children: this.currentViewState.rules.map((rule) => ({ ...rule })),
+        };
     }
 
     private createFilterRule(fieldId?: string): FilterRule | undefined {
@@ -568,7 +570,7 @@ export class Toolbar {
         setIcon(remove, 'x');
         remove.addEventListener('click', () => {
             if (group && this.currentViewState.filterGroup) {
-                this.currentViewState.filterGroup = removeFilterNode(this.currentViewState.filterGroup, rule.id);
+                this.currentViewState.filterGroup = removeFilterNode(this.getCurrentFilterGroup(), rule.id);
             } else {
                 this.currentViewState.rules = this.currentViewState.rules.filter((entry) => entry.id !== rule.id);
             }
@@ -585,8 +587,7 @@ export class Toolbar {
             operators.map((value) => ({ value, label: this.operatorLabel(value) })),
             rule.operator,
             (value) => {
-                rule.operator = value;
-                this.emitViewState(button);
+                this.updateCurrentFilterRule(rule.id, { operator: value }, button);
                 this.renderViewPanel(panel, button);
             },
             { floating: true }
@@ -597,8 +598,7 @@ export class Toolbar {
     private renderRuleValue(
         parent: HTMLElement,
         rule: FilterRule,
-        definition: FieldDefinition | undefined,
-        button: HTMLButtonElement
+        definition: FieldDefinition | undefined,        button: HTMLButtonElement
     ): void {
         if (['empty', 'notEmpty', 'isTrue', 'isFalse', 'thisMonth', 'thisYear'].includes(rule.operator)) return;
 
@@ -614,7 +614,7 @@ export class Toolbar {
                 chip.addEventListener('click', () => {
                     if (selected.has(option.value)) selected.delete(option.value);
                     else selected.add(option.value);
-                    rule.value = Array.from(selected);
+                    this.updateCurrentFilterRule(rule.id, { value: Array.from(selected) }, button);
                     chip.toggleClass('is-active', selected.has(option.value));
                     chip.setAttribute('aria-pressed', String(selected.has(option.value)));                    this.emitViewState(button);
                 });
@@ -640,16 +640,14 @@ export class Toolbar {
                 rangeInput.addEventListener('change', () => onChange(rangeInput.value));
             };
             createRangeInput(this.viewText().from, rule.value, (value) => {
-                rule.value = rule.fieldType === 'number'
-                    ? (value === '' ? null : Number(value))
-                    : value;
-                this.emitViewState(button);
+                this.updateCurrentFilterRule(rule.id, {
+                    value: rule.fieldType === 'number' ? (value === '' ? null : Number(value)) : value,
+                }, button);
             });
             createRangeInput(this.viewText().to, rule.valueTo, (value) => {
-                rule.valueTo = rule.fieldType === 'number'
-                    ? (value === '' ? null : Number(value))
-                    : value;
-                this.emitViewState(button);
+                this.updateCurrentFilterRule(rule.id, {
+                    valueTo: rule.fieldType === 'number' ? (value === '' ? null : Number(value)) : value,
+                }, button);
             });
             return;
         }
@@ -660,13 +658,19 @@ export class Toolbar {
         });
         input.value = Array.isArray(rule.value) ? rule.value.join(', ') : String(rule.value ?? '');
         input.addEventListener('change', () => {
-            rule.value = rule.fieldType === 'number'
-                ? (input.value === '' ? null : Number(input.value))
-                : rule.fieldType === 'list'
-                    ? input.value.split(',').map((value) => value.trim()).filter(Boolean)
-                    : input.value;
-            this.emitViewState(button);
+            this.updateCurrentFilterRule(rule.id, {
+                value: rule.fieldType === 'number'
+                    ? (input.value === '' ? null : Number(input.value))
+                    : rule.fieldType === 'list'
+                        ? input.value.split(',').map((value) => value.trim()).filter(Boolean)
+                        : input.value,
+            }, button);
         });
+    }
+
+    private updateCurrentFilterRule(ruleId: string, update: Partial<FilterRule>, button: HTMLButtonElement): void {
+        this.currentViewState.filterGroup = updateFilterRule(this.getCurrentFilterGroup(), ruleId, update);
+        this.emitViewState(button);
     }
 
     private createOrderButton(order: SortOrder, onChange: (order: SortOrder) => void): HTMLButtonElement {
@@ -897,8 +901,7 @@ export class Toolbar {
             },
         });
         setIcon(addBtn, 'plus');
-        addBtn.addEventListener('click', () => this.callbacks.onAdd());
-    }
+        addBtn.addEventListener('click', () => this.callbacks.onAdd());    }
 
     private renderRandomButton(parent: HTMLElement): void {
         const randomBtn = parent.createEl('button', {
@@ -1080,20 +1083,3 @@ export class Toolbar {
     refresh(): void {
         this.render();
     }
-
-    /**
-     * Destroy the toolbar
-     */
-    destroy(): void {
-        if (this.searchTimeout) {
-            window.clearTimeout(this.searchTimeout);
-            this.searchTimeout = null;
-        }
-
-        this.dropdownManager.destroy();
-        activeDocument.removeEventListener('keydown', this.mediaTrayKeyHandler);
-        this.resizeObserver?.disconnect();
-        this.resizeObserver = null;
-
-        if (this.container && this.container.parentElement) {
-            this.container.remove();

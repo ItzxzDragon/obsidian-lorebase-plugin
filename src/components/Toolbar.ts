@@ -297,8 +297,7 @@ export class Toolbar {
     private renderViewPanel(panel: HTMLElement, button: HTMLButtonElement): void {
         const copy = this.viewText();
         panel.empty();
-        const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });
-        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
+        const header = panel.createDiv({ cls: 'lorebase-view-panel-header' });        const titleWrap = header.createDiv({ cls: 'lorebase-view-panel-title-wrap' });        titleWrap.createDiv({ cls: 'lorebase-view-panel-title', text: copy.configure });
         const activeSaved = this.savedViews.find((view) => view.id === this.activeSavedViewId);
         const dirty = Boolean(activeSaved && !libraryViewStatesEqual(activeSaved.state, this.currentViewState));
         titleWrap.createDiv({
@@ -597,8 +596,7 @@ export class Toolbar {
 
     private renderRuleValue(
         parent: HTMLElement,
-        rule: FilterRule,
-        definition: FieldDefinition | undefined,        button: HTMLButtonElement
+        rule: FilterRule,        definition: FieldDefinition | undefined,        button: HTMLButtonElement
     ): void {
         if (['empty', 'notEmpty', 'isTrue', 'isFalse', 'thisMonth', 'thisYear'].includes(rule.operator)) return;
 
@@ -707,7 +705,7 @@ export class Toolbar {
     }
 
     private hasCustomizedView(): boolean {
-        const hasFilters = this.currentViewState.rules.length > 0
+        const hasFilters = countFilterRules(this.getCurrentFilterGroup()) > 0
             || this.currentViewState.tags.length > 0
             || this.currentViewState.genres.length > 0;
         const hasCustomSort = this.currentViewState.sort.field !== this.defaultViewState.sort.field
@@ -897,8 +895,7 @@ export class Toolbar {
             cls: 'lorebase-toolbar-btn lorebase-add-btn',
             attr: {
                 type: 'button',
-                'aria-label': t('promptAddSelected'),
-            },
+                'aria-label': t('promptAddSelected'),            },
         });
         setIcon(addBtn, 'plus');
         addBtn.addEventListener('click', () => this.callbacks.onAdd());    }
@@ -1080,6 +1077,3 @@ export class Toolbar {
     /**
      * Refresh the toolbar (re-render for localization updates)
      */
-    refresh(): void {
-        this.render();
-    }

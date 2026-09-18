@@ -103,12 +103,20 @@ export function matchesFilterGroup(
     group: FilterGroup,
     matchesRule: (rule: FilterRule) => boolean
 ): boolean {
-    if (group.mode === 'none') return true;
-    const results = group.children.map((child) => isFilterGroup(child)
+    const active = group.children.filter(hasEffectiveFilterNode);
+    if (active.length === 0) return true;
+    const results = active.map((child) => isFilterGroup(child)
         ? matchesFilterGroup(child, matchesRule)
         : matchesRule(child));
     if (group.mode === 'or') return results.some(Boolean);
+    if (group.mode === 'none') return !results.some(Boolean);
     return results.every(Boolean);
+}
+
+function hasEffectiveFilterNode(node: FilterNode): boolean {
+    return isFilterGroup(node)
+        ? node.children.some(hasEffectiveFilterNode)
+        : Boolean(node.field?.trim());
 }
 
 function findFilterGroup(group: FilterGroup, id: string): FilterGroup | undefined {
